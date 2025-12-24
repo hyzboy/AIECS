@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Entity.h"
+#include "EntityContext.h"
 #include "TransformStorage.h"
 #include <memory>
 
@@ -8,13 +9,16 @@
 /// Uses SOA TransformStorage for efficient memory layout
 class EntityManager {
 public:
-    EntityManager() = default;
+    EntityManager() {
+        // Initialize the context with pointers to the storage systems
+        context.transformStorage = &transformStorage;
+    }
 
     /// Create a new entity with a transform component
-    /// Returns an Entity handle with access to TransformStorage
+    /// Returns an Entity handle with access to EntityContext
     Entity createEntity() {
         auto id = transformStorage.allocate();
-        return Entity(id, &transformStorage);
+        return Entity(id, &context);
     }
 
     /// Destroy an entity and free its transform data
@@ -41,4 +45,5 @@ public:
 
 private:
     TransformStorage transformStorage;
+    EntityContext context;
 };

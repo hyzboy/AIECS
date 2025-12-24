@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TransformStorage.h"
+#include "EntityContext.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
@@ -8,21 +8,21 @@
 class EntityManager;
 
 /// Entity class that encapsulates transform operations
-/// Acts as a handle to transform data stored in TransformStorage
+/// Acts as a handle to transform data stored in EntityContext
+/// Can only be created through EntityManager
 class Entity {
 public:
     using EntityID = TransformStorage::EntityID;
 
-    Entity() : id(TransformStorage::INVALID_ENTITY), transformStorage(nullptr) {}
-    
-    Entity(EntityID id, TransformStorage* storage)
-        : id(id), transformStorage(storage) {}
+    /// Default constructor creates an invalid entity
+    Entity() : id(TransformStorage::INVALID_ENTITY), context(nullptr) {}
 
     /// Check if this entity is valid
     bool isValid() const {
         return id != TransformStorage::INVALID_ENTITY && 
-               transformStorage != nullptr &&
-               transformStorage->isValid(id);
+               context != nullptr &&
+               context->transformStorage != nullptr &&
+               context->transformStorage->isValid(id);
     }
 
     /// Get the entity ID
@@ -35,39 +35,39 @@ public:
     /// Get the position
     glm::vec3 getPosition() const {
         if (!isValid()) return glm::vec3(0.0f);
-        return transformStorage->getPosition(id);
+        return context->transformStorage->getPosition(id);
     }
 
     /// Set the position
     void setPosition(const glm::vec3& pos) {
         if (isValid()) {
-            transformStorage->setPosition(id, pos);
+            context->transformStorage->setPosition(id, pos);
         }
     }
 
     /// Get the rotation
     glm::quat getRotation() const {
         if (!isValid()) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        return transformStorage->getRotation(id);
+        return context->transformStorage->getRotation(id);
     }
 
     /// Set the rotation
     void setRotation(const glm::quat& rot) {
         if (isValid()) {
-            transformStorage->setRotation(id, rot);
+            context->transformStorage->setRotation(id, rot);
         }
     }
 
     /// Get the scale
     glm::vec3 getScale() const {
         if (!isValid()) return glm::vec3(1.0f);
-        return transformStorage->getScale(id);
+        return context->transformStorage->getScale(id);
     }
 
     /// Set the scale
     void setScale(const glm::vec3& scale) {
         if (isValid()) {
-            transformStorage->setScale(id, scale);
+            context->transformStorage->setScale(id, scale);
         }
     }
 
@@ -76,27 +76,27 @@ public:
     /// Get the parent entity
     Entity getParent() const {
         if (!isValid()) return Entity();
-        EntityID parentId = transformStorage->getParent(id);
+        EntityID parentId = context->transformStorage->getParent(id);
         if (parentId == TransformStorage::INVALID_ENTITY) return Entity();
-        return Entity(parentId, transformStorage);
+        return createEntity(parentId, context);
     }
 
     /// Set the parent entity
     void setParent(const Entity& parent) {
         if (!isValid()) return;
         
-        if (parent.isValid() && parent.transformStorage == transformStorage) {
-            transformStorage->setParent(id, parent.getID());
+        if (parent.isValid() && parent.context == context) {
+            context->transformStorage->setParent(id, parent.getID());
         } else {
             // Remove parent
-            transformStorage->setParent(id, TransformStorage::INVALID_ENTITY);
+            context->transformStorage->setParent(id, TransformStorage::INVALID_ENTITY);
         }
     }
 
     /// Check if this entity has a parent
     bool hasParent() const {
         if (!isValid()) return false;
-        return transformStorage->getParent(id) != TransformStorage::INVALID_ENTITY;
+        return context->transformStorage->getParent(id) != TransformStorage::INVALID_ENTITY;
     }
 
     /// Get all child entities
@@ -104,11 +104,11 @@ public:
         std::vector<Entity> result;
         if (!isValid()) return result;
         
-        const auto& childIds = transformStorage->getChildren(id);
+        const auto& childIds = context->transformStorage->getChildren(id);
         result.reserve(childIds.size());
         
         for (EntityID childId : childIds) {
-            result.emplace_back(childId, transformStorage);
+            result.push_back(createEntity(childId, context));
         }
         
         return result;
@@ -117,37 +117,46 @@ public:
     /// Add a child entity
     void addChild(const Entity& child) {
         if (!isValid() || !child.isValid()) return;
-        if (transformStorage != child.transformStorage) return;
+        if (context != child.context) return;
         
-        transformStorage->addChild(id, child.getID());
+        context->transformStorage->addChild(id, child.getID());
     }
 
     /// Remove a child entity (only removes the relationship, doesn't delete the entity)
     void removeChild(const Entity& child) {
         if (!isValid() || !child.isValid()) return;
-        if (transformStorage != child.transformStorage) return;
+        if (context != child.context) return;
         
         // setParent will handle removing from parent's children list
-        transformStorage->setParent(child.getID(), TransformStorage::INVALID_ENTITY);
+        context->transformStorage->setParent(child.getID(), TransformStorage::INVALID_ENTITY);
     }
 
     /// Get the number of children
     size_t getChildCount() const {
         if (!isValid()) return 0;
-        return transformStorage->getChildren(id).size();
+        return context->transformStorage->getChildren(id).size();
     }
 
     /// Delete the transform (marks it for reuse)
     void deleteTransform() {
         if (isValid()) {
-            transformStorage->deallocate(id);
+            context->transformStorage->deallocate(id);
             id = TransformStorage::INVALID_ENTITY;
         }
     }
 
 private:
+    /// Private constructor - can only be created by EntityManager
+    Entity(EntityID id, EntityContext* ctx)
+        : id(id), context(ctx) {}
+
+    /// Helper method to create Entity instances from within Entity methods
+    static Entity createEntity(EntityID id, EntityContext* ctx) {
+        return Entity(id, ctx);
+    }
+
     EntityID id;
-    TransformStorage* transformStorage;
+    EntityContext* context;
     
     friend class EntityManager;
 };
