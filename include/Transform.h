@@ -89,11 +89,11 @@ public:
         // Extract rotation from matrix (assuming no skew/shear)
         glm::mat3 rotMat(worldMat);
         
-        // Remove scale
+        // Remove scale with division by zero protection
         glm::vec3 scale = getWorldScale();
-        rotMat[0] /= scale.x;
-        rotMat[1] /= scale.y;
-        rotMat[2] /= scale.z;
+        if (std::abs(scale.x) > 1e-6f) rotMat[0] /= scale.x;
+        if (std::abs(scale.y) > 1e-6f) rotMat[1] /= scale.y;
+        if (std::abs(scale.z) > 1e-6f) rotMat[2] /= scale.z;
         
         return glm::quat_cast(rotMat);
     }
@@ -154,7 +154,13 @@ public:
         } else {
             // Has parent, need to divide by parent's world scale
             glm::vec3 parentWorldScale = extractScaleFromMatrix(transformStorage->getWorldMatrix(parentId));
-            glm::vec3 localScale = worldScale / parentWorldScale;
+            
+            // Prevent division by zero
+            glm::vec3 localScale;
+            localScale.x = (std::abs(parentWorldScale.x) > 1e-6f) ? worldScale.x / parentWorldScale.x : worldScale.x;
+            localScale.y = (std::abs(parentWorldScale.y) > 1e-6f) ? worldScale.y / parentWorldScale.y : worldScale.y;
+            localScale.z = (std::abs(parentWorldScale.z) > 1e-6f) ? worldScale.z / parentWorldScale.z : worldScale.z;
+            
             transformStorage->setScale(id, localScale);
         }
     }
@@ -192,9 +198,11 @@ private:
         
         // Remove scale
         glm::vec3 scale = extractScaleFromMatrix(matrix);
-        rotMat[0] /= scale.x;
-        rotMat[1] /= scale.y;
-        rotMat[2] /= scale.z;
+        
+        // Prevent division by zero - use identity if scale is too small
+        if (std::abs(scale.x) > 1e-6f) rotMat[0] /= scale.x;
+        if (std::abs(scale.y) > 1e-6f) rotMat[1] /= scale.y;
+        if (std::abs(scale.z) > 1e-6f) rotMat[2] /= scale.z;
         
         return glm::quat_cast(rotMat);
     }

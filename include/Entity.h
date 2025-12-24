@@ -172,8 +172,8 @@ public:
         return Transform(id, context->transformStorage);
     }
 
-    /// Get a const Transform accessor for this entity
-    const Transform getTransform() const {
+    /// Get a Transform accessor for this entity (const version)
+    Transform getTransform() const {
         if (!isValid()) {
             return Transform(TransformStorage::INVALID_ENTITY, nullptr);
         }
