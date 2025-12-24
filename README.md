@@ -36,10 +36,18 @@
    - 封装 Transform 属性操作（获取、设置、删除）
    - 支持父子实体关系管理（addChild, removeChild, getParent, getChildren）
    - 支持世界变换矩阵访问和更新（getWorldMatrix, updateTransform, updateTransformHierarchy）
+   - 提供 Transform 访问器（getTransform）用于更灵活的变换操作
    - 提供友好的 API，使用起来就像 Entity 自己拥有 Transform 数据
    - 构造函数为私有，只能通过 EntityManager 创建，防止误用
 
-4. **EntityManager** (`include/EntityManager.h`)
+4. **Transform** (`include/Transform.h`)
+   - Transform/TRS 访问器类，由 Entity::getTransform() 返回
+   - 支持本地变换（相对于父实体）的读写
+   - 支持世界变换（绝对坐标）的读写
+   - 世界变换设置时自动反推本地 TRS
+   - 提供统一接口操作位置、旋转、缩放
+
+5. **EntityManager** (`include/EntityManager.h`)
    - 管理实体和组件的创建与销毁
    - 内置 TransformStorage 和 EntityContext
    - 提供创建 Entity 的工厂方法，并自动传递 EntityContext 指针
@@ -253,6 +261,50 @@ glm::vec3 worldPos(worldMatrix[3][0], worldMatrix[3][1], worldMatrix[3][2]);
 // 批量更新所有根实体及其子实体
 entityManager.updateAllTransforms();
 ```
+
+### Transform 访问器
+
+```cpp
+// 获取 Transform 访问器
+Entity entity = entityManager.createEntity();
+Transform transform = entity.getTransform();
+
+// 设置本地变换（相对于父实体）
+transform.setLocalPosition(glm::vec3(10.0f, 20.0f, 30.0f));
+transform.setLocalRotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
+transform.setLocalScale(glm::vec3(2.0f, 2.0f, 2.0f));
+
+// 或一次性设置所有本地 TRS
+transform.setLocalTRS(position, rotation, scale);
+
+// 获取本地变换
+glm::vec3 localPos = transform.getLocalPosition();
+glm::quat localRot = transform.getLocalRotation();
+glm::vec3 localScale = transform.getLocalScale();
+
+// 设置世界变换（自动反推本地变换）
+entity.setParent(parent);
+transform.setWorldPosition(glm::vec3(100.0f, 50.0f, 0.0f));
+transform.setWorldRotation(worldRotation);
+transform.setWorldScale(glm::vec3(1.0f, 1.0f, 1.0f));
+
+// 或一次性设置世界 TRS
+transform.setWorldTRS(worldPos, worldRot, worldScale);
+
+// 从矩阵设置世界变换
+transform.setWorldMatrix(worldMatrix);
+
+// 获取世界变换（从世界矩阵提取）
+glm::vec3 worldPos = transform.getWorldPosition();
+glm::quat worldRot = transform.getWorldRotation();
+glm::vec3 worldScale = transform.getWorldScale();
+glm::mat4 worldMatrix = transform.getWorldMatrix();
+```
+
+**说明：**
+- **本地变换**：相对于父实体的变换，直接设置存储的 TRS 值
+- **世界变换**：在世界空间的绝对变换，设置时会根据父实体的世界变换反推本地 TRS
+- 世界变换的获取从当前的世界变换矩阵中提取 TRS 分量
 
 ## 依赖库
 
