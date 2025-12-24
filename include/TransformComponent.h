@@ -1,0 +1,220 @@
+#pragma once
+
+#include "TransformStorage.h"
+#include "ComponentTypes.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+/// TransformComponent accessor for reading and writing entity transforms
+/// Provides both local (relative to parent) and world (absolute) transform access
+class TransformComponent {
+public:
+    using EntityID = TransformStorage::EntityID;
+
+    TransformComponent(ComponentID compId, TransformStorage* storage)
+        : componentId(compId), transformStorage(storage) {}
+
+    /// Check if this component is valid
+    bool isValid() const {
+        return componentId != INVALID_COMPONENT && 
+               transformStorage != nullptr && 
+               transformStorage->isValid(componentId);
+    }
+
+    /// Get component ID
+    ComponentID getComponentID() const {
+        return componentId;
+    }
+
+    // Local transform accessors (relative to parent)
+
+    /// Get local position (relative to parent)
+    glm::vec3 getLocalPosition() const {
+        if (!isValid()) return glm::vec3(0.0f);
+        return transformStorage->getPosition(componentId);
+    }
+
+    /// Set local position (relative to parent)
+    void setLocalPosition(const glm::vec3& pos) {
+        if (isValid()) {
+            transformStorage->setPosition(componentId, pos);
+        }
+    }
+
+    /// Get local rotation (relative to parent)
+    glm::quat getLocalRotation() const {
+        if (!isValid()) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        return transformStorage->getRotation(componentId);
+    }
+
+    /// Set local rotation (relative to parent)
+    void setLocalRotation(const glm::quat& rot) {
+        if (isValid()) {
+            transformStorage->setRotation(componentId, rot);
+        }
+    }
+
+    /// Get local scale (relative to parent)
+    glm::vec3 getLocalScale() const {
+        if (!isValid()) return glm::vec3(1.0f);
+        return transformStorage->getScale(componentId);
+    }
+
+    /// Set local scale (relative to parent)
+    void setLocalScale(const glm::vec3& scale) {
+        if (isValid()) {
+            transformStorage->setScale(componentId, scale);
+        }
+    }
+
+    /// Set all local transform components at once
+    void setLocalTRS(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale) {
+        if (isValid()) {
+            transformStorage->setPosition(componentId, position);
+            transformStorage->setRotation(componentId, rotation);
+            transformStorage->setScale(componentId, scale);
+        }
+    }
+
+    // World transform accessors (absolute, in world space)
+
+    /// Get world transform matrix
+    glm::mat4 getWorldMatrix() const {
+        if (!isValid()) return glm::mat4(1.0f);
+        return transformStorage->getWorldMatrix(componentId);
+    }
+
+    /// Get world position (extracted from world matrix)
+    glm::vec3 getWorldPosition() const {
+        glm::mat4 worldMat = getWorldMatrix();
+        return glm::vec3(worldMat[3]);
+    }
+
+    /// Get world rotation (extracted from world matrix)
+    glm::quat getWorldRotation() const {
+        glm::mat4 worldMat = getWorldMatrix();
+        // Extract rotation from matrix (assuming no skew/shear)
+        glm::mat3 rotMat(worldMat);
+        
+        // Remove scale with division by zero protection
+        glm::vec3 scale = getWorldScale();
+        if (std::abs(scale.x) > 1e-6f) rotMat[0] /= scale.x;
+        if (std::abs(scale.y) > 1e-6f) rotMat[1] /= scale.y;
+        if (std::abs(scale.z) > 1e-6f) rotMat[2] /= scale.z;
+        
+        return glm::quat_cast(rotMat);
+    }
+
+    /// Get world scale (extracted from world matrix)
+    glm::vec3 getWorldScale() const {
+        glm::mat4 worldMat = getWorldMatrix();
+        return glm::vec3(
+            glm::length(glm::vec3(worldMat[0])),
+            glm::length(glm::vec3(worldMat[1])),
+            glm::length(glm::vec3(worldMat[2]))
+        );
+    }
+
+    /// Set world position (back-calculates local position from parent)
+    void setWorldPosition(const glm::vec3& worldPos) {
+        if (!isValid()) return;
+
+        EntityID parentId = transformStorage->getParent(componentId);
+        if (parentId == TransformStorage::INVALID_ENTITY) {
+            // No parent, world position = local position
+            transformStorage->setPosition(componentId, worldPos);
+        } else {
+            // Has parent, need to convert world to local
+            glm::mat4 parentWorldMatrix = transformStorage->getWorldMatrix(parentId);
+            glm::mat4 invParentMatrix = glm::inverse(parentWorldMatrix);
+            
+            // Transform world position to parent's local space
+            glm::vec4 localPos4 = invParentMatrix * glm::vec4(worldPos, 1.0f);
+            transformStorage->setPosition(componentId, glm::vec3(localPos4));
+        }
+    }
+
+    /// Set world rotation (back-calculates local rotation from parent)
+    void setWorldRotation(const glm::quat& worldRot) {
+        if (!isValid()) return;
+
+        EntityID parentId = transformStorage->getParent(componentId);
+        if (parentId == TransformStorage::INVALID_ENTITY) {
+            // No parent, world rotation = local rotation
+            transformStorage->setRotation(componentId, worldRot);
+        } else {
+            // Has parent, need to convert world to local
+            glm::quat parentWorldRot = extractRotationFromMatrix(transformStorage->getWorldMatrix(parentId));
+            glm::quat localRot = glm::inverse(parentWorldRot) * worldRot;
+            transformStorage->setRotation(componentId, localRot);
+        }
+    }
+
+    /// Set world scale (back-calculates local scale from parent)
+    void setWorldScale(const glm::vec3& worldScale) {
+        if (!isValid()) return;
+
+        EntityID parentId = transformStorage->getParent(componentId);
+        if (parentId == TransformStorage::INVALID_ENTITY) {
+            // No parent, world scale = local scale
+            transformStorage->setScale(componentId, worldScale);
+        } else {
+            // Has parent, need to divide by parent's world scale
+            glm::vec3 parentWorldScale = extractScaleFromMatrix(transformStorage->getWorldMatrix(parentId));
+            
+            // Prevent division by zero
+            glm::vec3 localScale;
+            localScale.x = (std::abs(parentWorldScale.x) > 1e-6f) ? worldScale.x / parentWorldScale.x : worldScale.x;
+            localScale.y = (std::abs(parentWorldScale.y) > 1e-6f) ? worldScale.y / parentWorldScale.y : worldScale.y;
+            localScale.z = (std::abs(parentWorldScale.z) > 1e-6f) ? worldScale.z / parentWorldScale.z : worldScale.z;
+            
+            transformStorage->setScale(componentId, localScale);
+        }
+    }
+
+    /// Set world transform (back-calculates local TRS from parent)
+    void setWorldTRS(const glm::vec3& worldPos, const glm::quat& worldRot, const glm::vec3& worldScale) {
+        setWorldPosition(worldPos);
+        setWorldRotation(worldRot);
+        setWorldScale(worldScale);
+    }
+
+    /// Set world transform from matrix (back-calculates local TRS)
+    void setWorldMatrix(const glm::mat4& worldMatrix) {
+        // Extract TRS from matrix
+        glm::vec3 worldPos(worldMatrix[3]);
+        glm::vec3 worldScale = extractScaleFromMatrix(worldMatrix);
+        glm::quat worldRot = extractRotationFromMatrix(worldMatrix);
+        
+        setWorldTRS(worldPos, worldRot, worldScale);
+    }
+
+private:
+    /// Helper: Extract scale from matrix
+    static glm::vec3 extractScaleFromMatrix(const glm::mat4& matrix) {
+        return glm::vec3(
+            glm::length(glm::vec3(matrix[0])),
+            glm::length(glm::vec3(matrix[1])),
+            glm::length(glm::vec3(matrix[2]))
+        );
+    }
+
+    /// Helper: Extract rotation from matrix (removes scale)
+    static glm::quat extractRotationFromMatrix(const glm::mat4& matrix) {
+        glm::mat3 rotMat(matrix);
+        
+        // Remove scale
+        glm::vec3 scale = extractScaleFromMatrix(matrix);
+        
+        // Prevent division by zero - use identity if scale is too small
+        if (std::abs(scale.x) > 1e-6f) rotMat[0] /= scale.x;
+        if (std::abs(scale.y) > 1e-6f) rotMat[1] /= scale.y;
+        if (std::abs(scale.z) > 1e-6f) rotMat[2] /= scale.z;
+        
+        return glm::quat_cast(rotMat);
+    }
+
+    ComponentID componentId;
+    TransformStorage* transformStorage;
+};
