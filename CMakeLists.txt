@@ -13,6 +13,11 @@ find_package(glm CONFIG REQUIRED)
 # Create executable
 add_executable(aiecs src/main.cpp)
 
+# Include directories
+target_include_directories(aiecs PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 # Link GLM
 target_link_libraries(aiecs PRIVATE glm::glm)
 
