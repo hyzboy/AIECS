@@ -13,23 +13,32 @@
 
 ### 核心组件
 
-1. **TransformStorage** (`include/TransformStorage.h`)
+1. **EntityContext** (`include/EntityContext.h`)
+   - 存储系统的上下文结构
+   - 包含指向各种存储系统的指针（TransformStorage 等）
+   - 便于未来扩展其他系统（如 RenderStorage、PhysicsStorage）
+   - 通过 EntityManager 初始化并传递给 Entity
+
+2. **TransformStorage** (`include/TransformStorage.h`)
    - 使用 SOA (Structure of Arrays) 模式存储 Transform 组件
    - 分离存储位置 (position)、旋转 (rotation) 和缩放 (scale)
    - 支持父子实体关系（parent/children）存储
    - 提供高效的缓存局部性
    - 支持槽位复用机制
 
-2. **Entity** (`include/Entity.h`)
+3. **Entity** (`include/Entity.h`)
    - 实体类，作为 Transform 数据的句柄
+   - 持有 EntityContext 指针以访问所有存储系统
    - 封装 Transform 属性操作（获取、设置、删除）
    - 支持父子实体关系管理（addChild, removeChild, getParent, getChildren）
    - 提供友好的 API，使用起来就像 Entity 自己拥有 Transform 数据
+   - 构造函数为私有，只能通过 EntityManager 创建，防止误用
 
-3. **EntityManager** (`include/EntityManager.h`)
+4. **EntityManager** (`include/EntityManager.h`)
    - 管理实体和组件的创建与销毁
-   - 内置 TransformStorage
-   - 提供创建 Entity 的工厂方法，并自动传递 TransformStorage 指针
+   - 内置 TransformStorage 和 EntityContext
+   - 提供创建 Entity 的工厂方法，并自动传递 EntityContext 指针
+   - 确保所有 Entity 都通过正确的方式创建
 
 ## 项目要求
 
@@ -112,6 +121,7 @@ AIECS/
 ├── vcpkg.json                  # vcpkg 依赖清单
 ├── vcpkg-configuration.json    # vcpkg 配置
 ├── include/                    # 头文件目录
+│   ├── EntityContext.h         # 实体上下文结构
 │   ├── TransformStorage.h     # SOA 模式的 Transform 存储
 │   ├── Entity.h               # 实体类
 │   └── EntityManager.h        # 实体管理器
