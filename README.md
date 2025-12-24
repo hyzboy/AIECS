@@ -16,12 +16,14 @@
 1. **TransformStorage** (`include/TransformStorage.h`)
    - 使用 SOA (Structure of Arrays) 模式存储 Transform 组件
    - 分离存储位置 (position)、旋转 (rotation) 和缩放 (scale)
+   - 支持父子实体关系（parent/children）存储
    - 提供高效的缓存局部性
    - 支持槽位复用机制
 
 2. **Entity** (`include/Entity.h`)
    - 实体类，作为 Transform 数据的句柄
    - 封装 Transform 属性操作（获取、设置、删除）
+   - 支持父子实体关系管理（addChild, removeChild, getParent, getChildren）
    - 提供友好的 API，使用起来就像 Entity 自己拥有 Transform 数据
 
 3. **EntityManager** (`include/EntityManager.h`)
@@ -120,6 +122,8 @@ AIECS/
 
 ## 使用示例
 
+### 基本用法
+
 ```cpp
 #include "EntityManager.h"
 
@@ -146,6 +150,35 @@ entity2.deleteTransform();
 
 // 销毁实体
 entityManager.destroyEntity(entity1);
+```
+
+### 父子实体关系
+
+```cpp
+// 创建父实体和子实体
+Entity parent = entityManager.createEntity();
+Entity child1 = entityManager.createEntity();
+Entity child2 = entityManager.createEntity();
+
+// 添加子实体
+parent.addChild(child1);
+parent.addChild(child2);
+
+// 检查父子关系
+bool hasParent = child1.hasParent();  // true
+size_t childCount = parent.getChildCount();  // 2
+
+// 获取父实体
+Entity parentEntity = child1.getParent();
+
+// 获取所有子实体
+std::vector<Entity> children = parent.getChildren();
+
+// 移除子实体（只移除关系，不删除实体）
+parent.removeChild(child1);
+
+// 设置新的父实体
+child1.setParent(parent);
 ```
 
 ## 依赖库
