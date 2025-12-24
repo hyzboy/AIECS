@@ -21,8 +21,9 @@
 
 2. **TransformStorage** (`include/TransformStorage.h`)
    - 使用 SOA (Structure of Arrays) 模式存储 Transform 组件
-   - 分离存储位置 (position)、旋转 (rotation) 和缩放 (scale)
+   - 分离存储位置 (position)、旋转 (rotation)、缩放 (scale) 和世界变换矩阵
    - 支持父子实体关系（parent/children）存储
+   - 计算层级世界变换矩阵（从本地变换和父级矩阵计算）
    - 提供高效的缓存局部性
    - 支持槽位复用机制
 
@@ -31,6 +32,7 @@
    - 持有 EntityContext 指针以访问所有存储系统
    - 封装 Transform 属性操作（获取、设置、删除）
    - 支持父子实体关系管理（addChild, removeChild, getParent, getChildren）
+   - 支持世界变换矩阵访问和更新（getWorldMatrix, updateTransform, updateTransformHierarchy）
    - 提供友好的 API，使用起来就像 Entity 自己拥有 Transform 数据
    - 构造函数为私有，只能通过 EntityManager 创建，防止误用
 
@@ -38,6 +40,7 @@
    - 管理实体和组件的创建与销毁
    - 内置 TransformStorage 和 EntityContext
    - 提供创建 Entity 的工厂方法，并自动传递 EntityContext 指针
+   - 提供批量更新所有根实体变换的方法（updateAllTransforms）
    - 确保所有 Entity 都通过正确的方式创建
 
 ## 项目要求
@@ -189,6 +192,37 @@ parent.removeChild(child1);
 
 // 设置新的父实体
 child1.setParent(parent);
+```
+
+### 世界变换矩阵
+
+```cpp
+// 创建层级结构
+Entity parent = entityManager.createEntity();
+Entity child = entityManager.createEntity();
+
+// 设置变换
+parent.setPosition(glm::vec3(10.0f, 0.0f, 0.0f));
+parent.setScale(glm::vec3(2.0f, 2.0f, 2.0f));
+
+child.setPosition(glm::vec3(5.0f, 0.0f, 0.0f));  // 相对于父实体
+parent.addChild(child);
+
+// 更新单个实体的世界变换矩阵
+parent.updateTransform();
+
+// 更新实体及其所有子实体的世界变换矩阵（递归）
+parent.updateTransformHierarchy();
+
+// 获取世界变换矩阵
+glm::mat4 worldMatrix = child.getWorldMatrix();
+
+// 世界坐标位置
+glm::vec3 worldPos(worldMatrix[3][0], worldMatrix[3][1], worldMatrix[3][2]);
+// child 的世界位置 = (20, 0, 0) = 父位置(10) + 子本地位置(5) * 父缩放(2)
+
+// 批量更新所有根实体及其子实体
+entityManager.updateAllTransforms();
 ```
 
 ## 依赖库
