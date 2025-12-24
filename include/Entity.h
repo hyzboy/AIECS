@@ -137,6 +137,29 @@ public:
         return context->transformStorage->getChildren(id).size();
     }
 
+    // World transform matrix methods
+
+    /// Get the world transform matrix (computed from hierarchy)
+    glm::mat4 getWorldMatrix() const {
+        if (!isValid()) return glm::mat4(1.0f);
+        return context->transformStorage->getWorldMatrix(id);
+    }
+
+    /// Update the world transform matrix for this entity
+    /// Computes from local transform and parent's world matrix
+    void updateTransform() {
+        if (isValid()) {
+            context->transformStorage->updateWorldMatrix(id);
+        }
+    }
+
+    /// Update the world transform matrix for this entity and all its children recursively
+    void updateTransformHierarchy() {
+        if (isValid()) {
+            context->transformStorage->updateWorldMatrixHierarchy(id);
+        }
+    }
+
     /// Delete the transform (marks it for reuse)
     void deleteTransform() {
         if (isValid()) {

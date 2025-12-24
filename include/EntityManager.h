@@ -43,6 +43,18 @@ public:
         return transformStorage.size();
     }
 
+    /// Update all root entities' transform hierarchies
+    /// This updates all entities that have no parent, and their children recursively
+    void updateAllTransforms() {
+        for (size_t i = 0; i < transformStorage.size(); ++i) {
+            // Update only root entities (those without parents)
+            if (transformStorage.isValid(i) && 
+                transformStorage.getParent(i) == TransformStorage::INVALID_ENTITY) {
+                transformStorage.updateWorldMatrixHierarchy(i);
+            }
+        }
+    }
+
 private:
     TransformStorage transformStorage;
     EntityContext context;

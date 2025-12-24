@@ -120,7 +120,82 @@ int main() {
 
     std::cout << "Total entities in storage: " << entityManager.getEntityCount() << std::endl;
     std::cout << std::endl;
-    std::cout << "ECS system with parent-child entity support is working correctly!" << std::endl;
+
+    // Demonstrate World Transform Matrix calculation
+    std::cout << "=== Testing World Transform Matrix ===" << std::endl;
+    std::cout << std::endl;
+
+    // Create a new hierarchy for testing world transforms
+    Entity parent = entityManager.createEntity();
+    Entity child = entityManager.createEntity();
+    Entity grandchild = entityManager.createEntity();
+
+    // Set up parent transform
+    parent.setPosition(glm::vec3(10.0f, 0.0f, 0.0f));
+    parent.setScale(glm::vec3(2.0f, 2.0f, 2.0f));
+    
+    // Set up child transform (relative to parent)
+    child.setPosition(glm::vec3(5.0f, 0.0f, 0.0f));
+    
+    // Set up grandchild transform (relative to child)
+    grandchild.setPosition(glm::vec3(3.0f, 0.0f, 0.0f));
+
+    // Build hierarchy
+    parent.addChild(child);
+    child.addChild(grandchild);
+
+    std::cout << "Created hierarchy: parent -> child -> grandchild" << std::endl;
+    std::cout << "Parent position: (10, 0, 0), scale: (2, 2, 2)" << std::endl;
+    std::cout << "Child position (local): (5, 0, 0)" << std::endl;
+    std::cout << "Grandchild position (local): (3, 0, 0)" << std::endl;
+    std::cout << std::endl;
+
+    // Update transforms
+    std::cout << "Updating world transforms..." << std::endl;
+    parent.updateTransformHierarchy();
+    
+    // Display world matrices
+    glm::mat4 parentWorld = parent.getWorldMatrix();
+    glm::mat4 childWorld = child.getWorldMatrix();
+    glm::mat4 grandchildWorld = grandchild.getWorldMatrix();
+    
+    std::cout << "Parent world position: (" 
+              << parentWorld[3][0] << ", " 
+              << parentWorld[3][1] << ", " 
+              << parentWorld[3][2] << ")" << std::endl;
+    
+    std::cout << "Child world position: (" 
+              << childWorld[3][0] << ", " 
+              << childWorld[3][1] << ", " 
+              << childWorld[3][2] << ")" << std::endl;
+    
+    std::cout << "Grandchild world position: (" 
+              << grandchildWorld[3][0] << ", " 
+              << grandchildWorld[3][1] << ", " 
+              << grandchildWorld[3][2] << ")" << std::endl;
+    std::cout << std::endl;
+
+    // Test updating all transforms via EntityManager
+    std::cout << "Testing EntityManager.updateAllTransforms()..." << std::endl;
+    parent.setPosition(glm::vec3(20.0f, 5.0f, 0.0f));
+    entityManager.updateAllTransforms();
+    
+    parentWorld = parent.getWorldMatrix();
+    childWorld = child.getWorldMatrix();
+    
+    std::cout << "After moving parent to (20, 5, 0):" << std::endl;
+    std::cout << "Parent world position: (" 
+              << parentWorld[3][0] << ", " 
+              << parentWorld[3][1] << ", " 
+              << parentWorld[3][2] << ")" << std::endl;
+    
+    std::cout << "Child world position: (" 
+              << childWorld[3][0] << ", " 
+              << childWorld[3][1] << ", " 
+              << childWorld[3][2] << ")" << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "ECS system with hierarchical world transform matrices is working correctly!" << std::endl;
 
     return 0;
 }

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <cstdint>
 #include <optional>
 
@@ -30,6 +31,7 @@ public:
             scales[id] = glm::vec3(1.0f);
             parents[id] = INVALID_ENTITY;
             children[id].clear();
+            worldMatrices[id] = glm::mat4(1.0f);
         } else {
             // Allocate a new slot
             id = static_cast<EntityID>(positions.size());
@@ -38,6 +40,7 @@ public:
             scales.emplace_back(1.0f);
             parents.emplace_back(INVALID_ENTITY);
             children.emplace_back();
+            worldMatrices.emplace_back(1.0f);
         }
         return id;
     }
@@ -154,6 +157,70 @@ public:
         }
     }
 
+    // World transform matrix accessors
+    const glm::mat4& getWorldMatrix(EntityID id) const {
+        static const glm::mat4 identity(1.0f);
+        if (id >= worldMatrices.size()) return identity;
+        return worldMatrices[id];
+    }
+
+    void setWorldMatrix(EntityID id, const glm::mat4& matrix) {
+        if (id < worldMatrices.size()) {
+            worldMatrices[id] = matrix;
+        }
+    }
+
+    /// Compute local transform matrix from position, rotation, and scale
+    glm::mat4 computeLocalMatrix(EntityID id) const {
+        if (id >= positions.size()) return glm::mat4(1.0f);
+        
+        // Create transformation matrix: T * R * S
+        glm::mat4 matrix(1.0f);
+        
+        // Apply translation
+        matrix = glm::translate(matrix, positions[id]);
+        
+        // Apply rotation
+        matrix = matrix * glm::mat4_cast(rotations[id]);
+        
+        // Apply scale
+        matrix = glm::scale(matrix, scales[id]);
+        
+        return matrix;
+    }
+
+    /// Update world transform matrix for an entity
+    /// If it has a parent, multiplies parent's world matrix with local matrix
+    /// Otherwise, world matrix = local matrix
+    void updateWorldMatrix(EntityID id) {
+        if (id >= positions.size()) return;
+        
+        glm::mat4 localMatrix = computeLocalMatrix(id);
+        
+        if (parents[id] != INVALID_ENTITY && parents[id] < worldMatrices.size()) {
+            // Has parent: world = parent_world * local
+            worldMatrices[id] = worldMatrices[parents[id]] * localMatrix;
+        } else {
+            // No parent: world = local
+            worldMatrices[id] = localMatrix;
+        }
+    }
+
+    /// Update world transform matrix hierarchically for an entity and all its children
+    void updateWorldMatrixHierarchy(EntityID id) {
+        if (id >= positions.size()) return;
+        
+        // Update this entity's world matrix
+        updateWorldMatrix(id);
+        
+        // Recursively update all children
+        if (id < children.size()) {
+            for (EntityID childId : children[id]) {
+                updateWorldMatrixHierarchy(childId);
+            }
+        }
+    }
+
     /// Get the number of allocated transform slots
     size_t size() const {
         return positions.size();
@@ -164,6 +231,9 @@ private:
     std::vector<glm::vec3> positions;
     std::vector<glm::quat> rotations;
     std::vector<glm::vec3> scales;
+    
+    // World transform matrices (computed from hierarchy)
+    std::vector<glm::mat4> worldMatrices;
     
     // Parent-child relationships (SOA style)
     std::vector<EntityID> parents;
