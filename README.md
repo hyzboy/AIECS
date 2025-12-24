@@ -1,6 +1,33 @@
 # AIECS
 
-一个基于 C++20 和 CMake 的项目，使用 vcpkg 进行依赖管理，并集成 GLM 数学库。
+一个基于 C++20 和 CMake 的 ECS (Entity Component System) 项目，使用 vcpkg 进行依赖管理，并集成 GLM 数学库。
+
+## 项目特点
+
+- **ECS 架构**: 实现了实体组件系统架构
+- **SOA 存储**: TransformStorage 使用 Structure of Arrays 模式，提高缓存性能
+- **C++20**: 使用现代 C++ 标准
+- **GLM 数学库**: 用于向量、矩阵和四元数运算
+
+## 架构说明
+
+### 核心组件
+
+1. **TransformStorage** (`include/TransformStorage.h`)
+   - 使用 SOA (Structure of Arrays) 模式存储 Transform 组件
+   - 分离存储位置 (position)、旋转 (rotation) 和缩放 (scale)
+   - 提供高效的缓存局部性
+   - 支持槽位复用机制
+
+2. **Entity** (`include/Entity.h`)
+   - 实体类，作为 Transform 数据的句柄
+   - 封装 Transform 属性操作（获取、设置、删除）
+   - 提供友好的 API，使用起来就像 Entity 自己拥有 Transform 数据
+
+3. **EntityManager** (`include/EntityManager.h`)
+   - 管理实体和组件的创建与销毁
+   - 内置 TransformStorage
+   - 提供创建 Entity 的工厂方法，并自动传递 TransformStorage 指针
 
 ## 项目要求
 
@@ -82,9 +109,43 @@ AIECS/
 ├── CMakeLists.txt              # CMake 配置文件
 ├── vcpkg.json                  # vcpkg 依赖清单
 ├── vcpkg-configuration.json    # vcpkg 配置
+├── include/                    # 头文件目录
+│   ├── TransformStorage.h     # SOA 模式的 Transform 存储
+│   ├── Entity.h               # 实体类
+│   └── EntityManager.h        # 实体管理器
 ├── src/
-│   └── main.cpp               # 主程序文件
+│   └── main.cpp               # 主程序文件（示例用法）
 └── README.md                  # 本文件
+```
+
+## 使用示例
+
+```cpp
+#include "EntityManager.h"
+
+// 创建 EntityManager
+EntityManager entityManager;
+
+// 创建实体
+Entity entity1 = entityManager.createEntity();
+Entity entity2 = entityManager.createEntity();
+
+// 设置 Transform 属性（就像 Entity 拥有这些数据一样）
+entity1.setPosition(glm::vec3(1.0f, 2.0f, 3.0f));
+entity1.setScale(glm::vec3(2.0f, 2.0f, 2.0f));
+
+// 获取 Transform 属性
+glm::vec3 pos = entity1.getPosition();
+glm::vec3 scale = entity1.getScale();
+
+// 设置旋转（使用四元数）
+entity2.setRotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+
+// 删除 Transform（标记为可复用）
+entity2.deleteTransform();
+
+// 销毁实体
+entityManager.destroyEntity(entity1);
 ```
 
 ## 依赖库
