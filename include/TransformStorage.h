@@ -44,9 +44,18 @@ public:
         }
     }
 
-    /// Check if an entity ID is valid
+    /// Check if an entity ID is valid (allocated and not freed)
     bool isValid(EntityID id) const {
-        return id < positions.size();
+        if (id >= positions.size()) {
+            return false;
+        }
+        // Check if the ID is in the free list
+        for (const auto& freeId : freeList) {
+            if (freeId == id) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // Position accessors
