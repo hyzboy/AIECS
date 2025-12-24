@@ -9,22 +9,14 @@
 	</Configurations>
 	<Project Path="ALL_BUILD.vcxproj" Id="a34e40ce-7ebf-3dc9-8dd0-a12106c686f3">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
-		<BuildDependency Project="aiecs_frostbite.vcxproj"/>
-		<BuildDependency Project="aiecs_hybrid.vcxproj"/>
-		<BuildDependency Project="aiecs_original.vcxproj"/>
+		<BuildDependency Project="aiecs.vcxproj"/>
 		<Build Solution="Debug|*" Project="false"/>
 		<Build Solution="Release|*" Project="false"/>
 		<Build Solution="MinSizeRel|*" Project="false"/>
 		<Build Solution="RelWithDebInfo|*" Project="false"/>
 	</Project>
 	<Project Path="ZERO_CHECK.vcxproj" Id="35ad6aee-b177-3c55-9d71-f086be3fa4c7"/>
-	<Project Path="aiecs_frostbite.vcxproj" Id="11ab0d9a-12ae-36d4-84e3-b128915118c0">
-		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
-	</Project>
-	<Project Path="aiecs_hybrid.vcxproj" Id="9ce8b1e6-aca7-31fe-9331-b5428bd5d9fa">
-		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
-	</Project>
-	<Project Path="aiecs_original.vcxproj" Id="fc46fadd-204e-3969-8c96-496d00450cfb">
+	<Project Path="aiecs.vcxproj" Id="e996e88f-6490-302e-a072-fdf504e6d53f">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 	</Project>
 </Solution>

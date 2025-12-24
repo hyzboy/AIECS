@@ -10,8 +10,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Find GLM package
 find_package(glm CONFIG REQUIRED)
 
-# Source files for Frostbite architecture
-set(FROSTBITE_SOURCES
+# Source files for hybrid architecture (Frostbite OOP + SOA backend)
+set(AIECS_SOURCES
     src/Object.cpp
     src/Module.cpp
     src/EventSystem.cpp
@@ -20,44 +20,21 @@ set(FROSTBITE_SOURCES
     src/TransformComponentFB.cpp
     src/CollisionComponentFB.cpp
     src/RenderComponentFB.cpp
+    src/main.cpp
 )
 
-# Create original executable
-add_executable(aiecs_original src/main.cpp)
+# Create main executable (hybrid architecture)
+add_executable(aiecs ${AIECS_SOURCES})
 
-# Create Frostbite-style executable
-add_executable(aiecs_frostbite src/main_frostbite.cpp ${FROSTBITE_SOURCES})
-
-# Create hybrid (Frostbite + SOA) executable
-add_executable(aiecs_hybrid src/main_hybrid.cpp ${FROSTBITE_SOURCES})
-
-# Include directories for all
-target_include_directories(aiecs_original PRIVATE 
+# Include directories
+target_include_directories(aiecs PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_include_directories(aiecs_frostbite PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+# Link GLM
+target_link_libraries(aiecs PRIVATE glm::glm)
 
-target_include_directories(aiecs_hybrid PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-# Link GLM for all
-target_link_libraries(aiecs_original PRIVATE glm::glm)
-target_link_libraries(aiecs_frostbite PRIVATE glm::glm)
-target_link_libraries(aiecs_hybrid PRIVATE glm::glm)
-
-# Set output directory for all
-set_target_properties(aiecs_original PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-set_target_properties(aiecs_frostbite PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-set_target_properties(aiecs_hybrid PROPERTIES
+# Set output directory
+set_target_properties(aiecs PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )

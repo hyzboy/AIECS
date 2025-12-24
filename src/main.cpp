@@ -1,141 +1,130 @@
 #include <iostream>
+#include <chrono>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include "EntityManager.h"
+#include "World.h"
+#include "GameEntity.h"
+#include "TransformComponentFB.h"
+#include "TransformDataStorage.h"
+
+void demonstrateSOABatchProcessing() {
+    std::cout << "\n=== SOA Batch Processing Demonstration ===" << std::endl;
+    std::cout << std::endl;
+
+    // Create a world
+    auto world = std::make_shared<World>("BatchWorld");
+    world->initialize();
+
+    // Create many entities with transforms
+    const int ENTITY_COUNT = 10000;
+    std::vector<std::shared_ptr<GameEntity>> entities;
+    
+    std::cout << "Creating " << ENTITY_COUNT << " entities with transforms..." << std::endl;
+    auto startCreate = std::chrono::high_resolution_clock::now();
+    
+    for (int i = 0; i < ENTITY_COUNT; ++i) {
+        auto entity = world->createObject<GameEntity>("Entity_" + std::to_string(i));
+        auto transform = entity->addComponent<TransformComponentFB>();
+        
+        // Initialize with some data
+        transform->setLocalPosition(glm::vec3(i * 0.1f, i * 0.2f, i * 0.3f));
+        transform->setLocalScale(glm::vec3(1.0f + i * 0.001f));
+        
+        entities.push_back(entity);
+    }
+    
+    auto endCreate = std::chrono::high_resolution_clock::now();
+    auto createDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endCreate - startCreate);
+    std::cout << "Created in " << createDuration.count() << " ms" << std::endl << std::endl;
+
+    // Demonstrate 1: Sequential access (still needed for component interface)
+    std::cout << "--- Sequential Access (Component Interface) ---" << std::endl;
+    auto startSeq = std::chrono::high_resolution_clock::now();
+    
+    volatile float sum = 0.0f;
+    for (const auto& entity : entities) {
+        auto transform = entity->getComponent<TransformComponentFB>();
+        if (transform) {
+            glm::vec3 pos = transform->getLocalPosition();
+            sum += pos.x + pos.y + pos.z;  // Do some work
+        }
+    }
+    
+    auto endSeq = std::chrono::high_resolution_clock::now();
+    auto seqDuration = std::chrono::duration_cast<std::chrono::microseconds>(endSeq - startSeq);
+    std::cout << "Sequential access: " << seqDuration.count() << " µs" << std::endl << std::endl;
+
+    // Demonstrate 2: Batch processing with SOA (much faster!)
+    std::cout << "--- Batch Processing (SOA Backend) ---" << std::endl;
+    auto startBatch = std::chrono::high_resolution_clock::now();
+    
+    auto storage = TransformComponentFB::getSharedStorage();
+    const auto& positions = storage->getAllPositions();
+    
+    // Direct array access - super cache friendly!
+    volatile float batchSum = 0.0f;
+    for (const auto& pos : positions) {
+        batchSum += pos.x + pos.y + pos.z;  // Same work, but cache efficient
+    }
+    
+    auto endBatch = std::chrono::high_resolution_clock::now();
+    auto batchDuration = std::chrono::duration_cast<std::chrono::microseconds>(endBatch - startBatch);
+    std::cout << "Batch processing: " << batchDuration.count() << " µs" << std::endl;
+    
+    if (seqDuration.count() > 0) {
+        float speedup = static_cast<float>(seqDuration.count()) / static_cast<float>(batchDuration.count());
+        std::cout << "Speedup: " << speedup << "x faster" << std::endl;
+    }
+    std::cout << std::endl;
+
+    // Demonstrate 3: Update all positions efficiently
+    std::cout << "--- Batch Update Operations ---" << std::endl;
+    auto startUpdate = std::chrono::high_resolution_clock::now();
+    
+    // Update all positions with a single callback
+    storage->updateAllDirtyMatrices([](TransformDataStorage::HandleID id, 
+                                       glm::vec3 pos, 
+                                       glm::quat rot, 
+                                       glm::vec3 scale) {
+        // This processes all dirty transforms at once, very cache friendly
+        // In reality, you'd compute world matrices here for all at once
+    });
+    
+    auto endUpdate = std::chrono::high_resolution_clock::now();
+    auto updateDuration = std::chrono::duration_cast<std::chrono::microseconds>(endUpdate - startUpdate);
+    std::cout << "Batch update: " << updateDuration.count() << " µs" << std::endl << std::endl;
+
+    // Demonstrate 4: Direct access to all data for physics/rendering
+    std::cout << "--- Direct Access to SOA Arrays ---" << std::endl;
+    std::cout << "Accessing position array directly:" << std::endl;
+    std::cout << "  Size: " << storage->getAllPositions().size() << " elements" << std::endl;
+    std::cout << "  Memory: " << (storage->getAllPositions().size() * sizeof(glm::vec3) / 1024) << " KB" << std::endl;
+    
+    std::cout << "Accessing rotation array directly:" << std::endl;
+    std::cout << "  Size: " << storage->getAllRotations().size() << " elements" << std::endl;
+    std::cout << "  Memory: " << (storage->getAllRotations().size() * sizeof(glm::quat) / 1024) << " KB" << std::endl;
+    
+    std::cout << "Accessing scale array directly:" << std::endl;
+    std::cout << "  Size: " << storage->getAllScales().size() << " elements" << std::endl;
+    std::cout << "  Memory: " << (storage->getAllScales().size() * sizeof(glm::vec3) / 1024) << " KB" << std::endl;
+    std::cout << std::endl;
+
+    // Summary
+    std::cout << "=== Summary ===" << std::endl;
+    std::cout << "✓ Component interface: Easy, object-oriented, flexible" << std::endl;
+    std::cout << "✓ SOA backend: Fast, cache-efficient, batch-friendly" << std::endl;
+    std::cout << "✓ Best of both worlds: OOP API + SOA performance!" << std::endl;
+    std::cout << std::endl;
+
+    world->shutdown();
+}
 
 int main() {
-    std::cout << "AIECS - C++20 ECS Project with Component-Based Architecture" << std::endl;
-    std::cout << "==========================================================" << std::endl;
-    std::cout << std::endl;
+    std::cout << "Frostbite + SOA Hybrid Architecture Demo" << std::endl;
+    std::cout << "========================================" << std::endl;
+    std::cout << "Combining OOP flexibility with SOA performance!" << std::endl;
 
-    // Create EntityManager
-    EntityManager entityManager;
-    std::cout << "EntityManager created!" << std::endl;
-    std::cout << std::endl;
+    demonstrateSOABatchProcessing();
 
-    // Create entities
-    std::cout << "Creating entities..." << std::endl;
-    Entity entity1 = entityManager.createEntity();
-    Entity entity2 = entityManager.createEntity();
-    Entity entity3 = entityManager.createEntity();
-    std::cout << "Created 3 entities (IDs: " 
-              << entity1.getID() << ", " 
-              << entity2.getID() << ", " 
-              << entity3.getID() << ")" << std::endl;
-    std::cout << std::endl;
-
-    // Add components to entities
-    std::cout << "Adding components to entities..." << std::endl;
-    entityManager.addTransformComponent(entity1);
-    entityManager.addRenderComponent(entity1);
-    
-    entityManager.addTransformComponent(entity2);
-    entityManager.addCollisionComponent(entity2);
-    
-    entityManager.addTransformComponent(entity3);
-    entityManager.addRenderComponent(entity3);
-    entityManager.addCollisionComponent(entity3);
-    
-    std::cout << "Entity 1: Transform + Render" << std::endl;
-    std::cout << "Entity 2: Transform + Collision" << std::endl;
-    std::cout << "Entity 3: Transform + Render + Collision" << std::endl;
-    std::cout << std::endl;
-
-    // Test TransformComponent
-    std::cout << "=== Testing TransformComponent ===" << std::endl;
-    std::cout << std::endl;
-    
-    auto transform1 = entity1.getTransformComponent();
-    if (transform1) {
-        transform1->setLocalPosition(glm::vec3(10.0f, 5.0f, 2.0f));
-        transform1->setLocalScale(glm::vec3(2.0f, 2.0f, 2.0f));
-        
-        std::cout << "Entity 1 Transform:" << std::endl;
-        std::cout << "  Position: (" 
-                  << transform1->getLocalPosition().x << ", "
-                  << transform1->getLocalPosition().y << ", "
-                  << transform1->getLocalPosition().z << ")" << std::endl;
-        std::cout << "  Scale: ("
-                  << transform1->getLocalScale().x << ", "
-                  << transform1->getLocalScale().y << ", "
-                  << transform1->getLocalScale().z << ")" << std::endl;
-    }
-    std::cout << std::endl;
-
-    // Test RenderComponent
-    std::cout << "=== Testing RenderComponent ===" << std::endl;
-    std::cout << std::endl;
-    
-    auto render1 = entity1.getRenderComponent();
-    if (render1) {
-        render1->setMeshName("cube.mesh");
-        render1->setMaterialName("metal.mat");
-        render1->setVisible(true);
-        render1->setCastShadows(true);
-        
-        std::cout << "Entity 1 Render:" << std::endl;
-        std::cout << "  Mesh: " << render1->getMeshName() << std::endl;
-        std::cout << "  Material: " << render1->getMaterialName() << std::endl;
-        std::cout << "  Visible: " << (render1->isVisible() ? "Yes" : "No") << std::endl;
-        std::cout << "  Casts Shadows: " << (render1->castsShadows() ? "Yes" : "No") << std::endl;
-    }
-    std::cout << std::endl;
-
-    // Test CollisionComponent
-    std::cout << "=== Testing CollisionComponent ===" << std::endl;
-    std::cout << std::endl;
-    
-    auto collision2 = entity2.getCollisionComponent();
-    if (collision2) {
-        collision2->setBoundingBox(glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-        collision2->setCollisionLayer(1);
-        collision2->setEnabled(true);
-        
-        std::cout << "Entity 2 Collision:" << std::endl;
-        std::cout << "  Bounding Box Min: ("
-                  << collision2->getBoundingBoxMin().x << ", "
-                  << collision2->getBoundingBoxMin().y << ", "
-                  << collision2->getBoundingBoxMin().z << ")" << std::endl;
-        std::cout << "  Bounding Box Max: ("
-                  << collision2->getBoundingBoxMax().x << ", "
-                  << collision2->getBoundingBoxMax().y << ", "
-                  << collision2->getBoundingBoxMax().z << ")" << std::endl;
-        std::cout << "  Collision Layer: " << collision2->getCollisionLayer() << std::endl;
-        std::cout << "  Enabled: " << (collision2->isEnabled() ? "Yes" : "No") << std::endl;
-    }
-    std::cout << std::endl;
-
-    // Test component checks
-    std::cout << "=== Component Presence Check ===" << std::endl;
-    std::cout << std::endl;
-    
-    std::cout << "Entity 1 components:" << std::endl;
-    std::cout << "  Has Transform: " << (entity1.hasTransformComponent() ? "Yes" : "No") << std::endl;
-    std::cout << "  Has Collision: " << (entity1.hasCollisionComponent() ? "Yes" : "No") << std::endl;
-    std::cout << "  Has Render: " << (entity1.hasRenderComponent() ? "Yes" : "No") << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "Entity 3 (all components):" << std::endl;
-    std::cout << "  Has Transform: " << (entity3.hasTransformComponent() ? "Yes" : "No") << std::endl;
-    std::cout << "  Has Collision: " << (entity3.hasCollisionComponent() ? "Yes" : "No") << std::endl;
-    std::cout << "  Has Render: " << (entity3.hasRenderComponent() ? "Yes" : "No") << std::endl;
-    std::cout << std::endl;
-
-    // Test component removal
-    std::cout << "=== Testing Component Removal ===" << std::endl;
-    std::cout << std::endl;
-    
-    std::cout << "Removing Collision from Entity 3..." << std::endl;
-    entityManager.removeCollisionComponent(entity3);
-    std::cout << "Entity 3 has Collision: " << (entity3.hasCollisionComponent() ? "Yes" : "No") << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "Total entities: " << entityManager.getEntityCount() << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "Component-based ECS system is working correctly!" << std::endl;
-
+    std::cout << "\nDemo complete!" << std::endl;
     return 0;
 }
