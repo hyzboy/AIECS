@@ -6,10 +6,10 @@
 #include <memory>
 
 /// Collision component for Frostbite architecture (with SOA backend)
-class CollisionComponentFB : public Component {
+class CollisionComponent : public Component {
 public:
-    CollisionComponentFB(const std::string& name = "Collision");
-    ~CollisionComponentFB() override;
+    CollisionComponent(const std::string& name = "Collision");
+    ~CollisionComponent() override;
 
     void setBoundingBox(const glm::vec3& min, const glm::vec3& max);
     glm::vec3 getBoundingBoxMin() const;

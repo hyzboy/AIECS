@@ -1,11 +1,11 @@
-#include "CollisionComponentFB.h"
+#include "CollisionComponent.h"
 #include <iostream>
 
 // 静态成员初始化
-std::shared_ptr<CollisionDataStorage> CollisionComponentFB::s_sharedStorage = 
+std::shared_ptr<CollisionDataStorage> CollisionComponent::s_sharedStorage = 
     std::make_shared<CollisionDataStorage>();
 
-CollisionComponentFB::CollisionComponentFB(const std::string& name)
+CollisionComponent::CollisionComponent(const std::string& name)
     : Component(name) {
     // 在 SOA 存储中分配槽位
     storageHandle = s_sharedStorage->allocate();
@@ -17,57 +17,57 @@ CollisionComponentFB::CollisionComponentFB(const std::string& name)
     s_sharedStorage->setEnabled(storageHandle, true);
 }
 
-CollisionComponentFB::~CollisionComponentFB() {
+CollisionComponent::~CollisionComponent() {
     // 释放 SOA 存储槽位
     if (storageHandle.isValid()) {
         s_sharedStorage->deallocate(storageHandle);
     }
 }
 
-void CollisionComponentFB::setBoundingBox(const glm::vec3& min, const glm::vec3& max) {
+void CollisionComponent::setBoundingBox(const glm::vec3& min, const glm::vec3& max) {
     s_sharedStorage->setBoundingBox(storageHandle, min, max);
 }
 
-glm::vec3 CollisionComponentFB::getBoundingBoxMin() const {
+glm::vec3 CollisionComponent::getBoundingBoxMin() const {
     return s_sharedStorage->getBoundingBoxMin(storageHandle);
 }
 
-glm::vec3 CollisionComponentFB::getBoundingBoxMax() const {
+glm::vec3 CollisionComponent::getBoundingBoxMax() const {
     return s_sharedStorage->getBoundingBoxMax(storageHandle);
 }
 
-void CollisionComponentFB::setCollisionLayer(uint32_t layer) {
+void CollisionComponent::setCollisionLayer(uint32_t layer) {
     s_sharedStorage->setCollisionLayer(storageHandle, layer);
 }
 
-uint32_t CollisionComponentFB::getCollisionLayer() const {
+uint32_t CollisionComponent::getCollisionLayer() const {
     return s_sharedStorage->getCollisionLayer(storageHandle);
 }
 
-void CollisionComponentFB::setCollisionMask(uint32_t mask) {
+void CollisionComponent::setCollisionMask(uint32_t mask) {
     s_sharedStorage->setCollisionMask(storageHandle, mask);
 }
 
-uint32_t CollisionComponentFB::getCollisionMask() const {
+uint32_t CollisionComponent::getCollisionMask() const {
     return s_sharedStorage->getCollisionMask(storageHandle);
 }
 
-void CollisionComponentFB::setEnabled(bool enable) {
+void CollisionComponent::setEnabled(bool enable) {
     s_sharedStorage->setEnabled(storageHandle, enable);
 }
 
-bool CollisionComponentFB::isEnabled() const {
+bool CollisionComponent::isEnabled() const {
     return s_sharedStorage->isEnabled(storageHandle);
 }
 
-std::shared_ptr<CollisionDataStorage> CollisionComponentFB::getSharedStorage() {
+std::shared_ptr<CollisionDataStorage> CollisionComponent::getSharedStorage() {
     return s_sharedStorage;
 }
 
-void CollisionComponentFB::onAttach() {
+void CollisionComponent::onAttach() {
     // Component attached
 }
 
-void CollisionComponentFB::onDetach() {
+void CollisionComponent::onDetach() {
     // Component detached
 }

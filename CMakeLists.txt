@@ -17,9 +17,9 @@ set(AIECS_SOURCES
     src/EventSystem.cpp
     src/World.cpp
     src/GameEntity.cpp
-    src/TransformComponentFB.cpp
-    src/CollisionComponentFB.cpp
-    src/RenderComponentFB.cpp
+    src/TransformComponent.cpp
+    src/CollisionComponent.cpp
+    src/RenderComponent.cpp
     src/main.cpp
 )
 

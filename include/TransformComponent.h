@@ -10,10 +10,10 @@
 /// Transform component for Frostbite architecture
 /// Uses SOA (Structure of Arrays) storage for better cache performance
 /// while maintaining OOP component interface
-class TransformComponentFB : public Component {
+class TransformComponent : public Component {
 public:
-    TransformComponentFB(const std::string& name = "Transform");
-    ~TransformComponentFB() override;
+    TransformComponent(const std::string& name = "Transform");
+    ~TransformComponent() override;
 
     // Local transform accessors (using SOA backend)
     glm::vec3 getLocalPosition() const;

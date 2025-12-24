@@ -3,9 +3,9 @@
 #include <glm/glm.hpp>
 #include "World.h"
 #include "GameEntity.h"
-#include "TransformComponentFB.h"
+#include "TransformComponent.h"
 #include "TransformDataStorage.h"
-#include "CollisionComponentFB.h"
+#include "CollisionComponent.h"
 #include "CollisionDataStorage.h"
 
 void demonstrateSOABatchProcessing() {
@@ -25,7 +25,7 @@ void demonstrateSOABatchProcessing() {
     
     for (int i = 0; i < ENTITY_COUNT; ++i) {
         auto entity = world->createObject<GameEntity>("Entity_" + std::to_string(i));
-        auto transform = entity->addComponent<TransformComponentFB>();
+        auto transform = entity->addComponent<TransformComponent>();
         
         // Initialize with some data
         transform->setLocalPosition(glm::vec3(i * 0.1f, i * 0.2f, i * 0.3f));
@@ -44,7 +44,7 @@ void demonstrateSOABatchProcessing() {
     
     volatile float sum = 0.0f;
     for (const auto& entity : entities) {
-        auto transform = entity->getComponent<TransformComponentFB>();
+        auto transform = entity->getComponent<TransformComponent>();
         if (transform) {
             glm::vec3 pos = transform->getLocalPosition();
             sum += pos.x + pos.y + pos.z;  // Do some work
@@ -59,7 +59,7 @@ void demonstrateSOABatchProcessing() {
     std::cout << "--- Batch Processing (SOA Backend) ---" << std::endl;
     auto startBatch = std::chrono::high_resolution_clock::now();
     
-    auto storage = TransformComponentFB::getSharedStorage();
+    auto storage = TransformComponent::getSharedStorage();
     const auto& positions = storage->getAllPositions();
     
     // Direct array access - super cache friendly!
@@ -136,7 +136,7 @@ void demonstrateCollisionBatchProcessing() {
     
     for (int i = 0; i < ENTITY_COUNT; ++i) {
         auto entity = world->createObject<GameEntity>("Entity_" + std::to_string(i));
-        auto collision = entity->addComponent<CollisionComponentFB>();
+        auto collision = entity->addComponent<CollisionComponent>();
         
         // 设置不同大小的包围盒
         float size = 1.0f + (i % 10) * 0.5f;
@@ -159,7 +159,7 @@ void demonstrateCollisionBatchProcessing() {
     
     int collisionCount = 0;
     for (size_t i = 0; i < entities.size(); ++i) {
-        auto col1 = entities[i]->getComponent<CollisionComponentFB>();
+        auto col1 = entities[i]->getComponent<CollisionComponent>();
         if (!col1 || !col1->isEnabled()) continue;
         
         auto min1 = col1->getBoundingBoxMin();
@@ -167,7 +167,7 @@ void demonstrateCollisionBatchProcessing() {
         
         // 简单的 AABB 碰撞检测（仅检测几个邻近的）
         for (size_t j = i + 1; j < std::min(i + 10, entities.size()); ++j) {
-            auto col2 = entities[j]->getComponent<CollisionComponentFB>();
+            auto col2 = entities[j]->getComponent<CollisionComponent>();
             if (!col2 || !col2->isEnabled()) continue;
             
             auto min2 = col2->getBoundingBoxMin();
@@ -190,7 +190,7 @@ void demonstrateCollisionBatchProcessing() {
     std::cout << "--- Method 2: SOA Batch Processing ---" << std::endl;
     auto startBatch = std::chrono::high_resolution_clock::now();
     
-    auto storage = CollisionComponentFB::getSharedStorage();
+    auto storage = CollisionComponent::getSharedStorage();
     const auto& mins = storage->getAllBoundingBoxMins();
     const auto& maxs = storage->getAllBoundingBoxMaxs();
     const auto& enabled = storage->getAllEnabledFlags();

@@ -1,57 +1,57 @@
-#include "TransformComponentFB.h"
+#include "TransformComponent.h"
 #include "GameEntity.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 #include <algorithm>
 
-TransformComponentFB::TransformComponentFB(const std::string& name)
+TransformComponent::TransformComponent(const std::string& name)
     : Component(name) {
     // Allocate space in shared SOA storage
     auto storage = getSharedStorage();
     storageHandle = storage->allocate();
 }
 
-TransformComponentFB::~TransformComponentFB() {
+TransformComponent::~TransformComponent() {
     if (storageHandle != TransformDataStorage::INVALID_HANDLE) {
         auto storage = getSharedStorage();
         storage->deallocate(storageHandle);
     }
 }
 
-glm::vec3 TransformComponentFB::getLocalPosition() const {
+glm::vec3 TransformComponent::getLocalPosition() const {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return glm::vec3(0.0f);
     return getSharedStorage()->getPosition(storageHandle);
 }
 
-void TransformComponentFB::setLocalPosition(const glm::vec3& pos) {
+void TransformComponent::setLocalPosition(const glm::vec3& pos) {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     getSharedStorage()->setPosition(storageHandle, pos);
     matrixDirty = true;
 }
 
-glm::quat TransformComponentFB::getLocalRotation() const {
+glm::quat TransformComponent::getLocalRotation() const {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     return getSharedStorage()->getRotation(storageHandle);
 }
 
-void TransformComponentFB::setLocalRotation(const glm::quat& rot) {
+void TransformComponent::setLocalRotation(const glm::quat& rot) {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     getSharedStorage()->setRotation(storageHandle, glm::normalize(rot));
     matrixDirty = true;
 }
 
-glm::vec3 TransformComponentFB::getLocalScale() const {
+glm::vec3 TransformComponent::getLocalScale() const {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return glm::vec3(1.0f);
     return getSharedStorage()->getScale(storageHandle);
 }
 
-void TransformComponentFB::setLocalScale(const glm::vec3& scale) {
+void TransformComponent::setLocalScale(const glm::vec3& scale) {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     getSharedStorage()->setScale(storageHandle, scale);
     matrixDirty = true;
 }
 
-void TransformComponentFB::setLocalTRS(const glm::vec3& pos, const glm::quat& rot, const glm::vec3& scale) {
+void TransformComponent::setLocalTRS(const glm::vec3& pos, const glm::quat& rot, const glm::vec3& scale) {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     auto storage = getSharedStorage();
     storage->setPosition(storageHandle, pos);
@@ -60,30 +60,30 @@ void TransformComponentFB::setLocalTRS(const glm::vec3& pos, const glm::quat& ro
     matrixDirty = true;
 }
 
-glm::mat4 TransformComponentFB::getLocalMatrix() const {
+glm::mat4 TransformComponent::getLocalMatrix() const {
     if (matrixDirty) {
-        const_cast<TransformComponentFB*>(this)->updateWorldMatrix();
+        const_cast<TransformComponent*>(this)->updateWorldMatrix();
     }
     return glm::mat4(1.0f); // Local matrix not stored, computed on demand
 }
 
-glm::mat4 TransformComponentFB::getWorldMatrix() const {
+glm::mat4 TransformComponent::getWorldMatrix() const {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return glm::mat4(1.0f);
     if (matrixDirty) {
-        const_cast<TransformComponentFB*>(this)->updateWorldMatrix();
+        const_cast<TransformComponent*>(this)->updateWorldMatrix();
     }
     return getSharedStorage()->getWorldMatrix(storageHandle);
 }
 
-glm::vec3 TransformComponentFB::getWorldPosition() const {
+glm::vec3 TransformComponent::getWorldPosition() const {
     glm::mat4 world = getWorldMatrix();
     return glm::vec3(world[3]);
 }
 
-void TransformComponentFB::setWorldPosition(const glm::vec3& pos) {
+void TransformComponent::setWorldPosition(const glm::vec3& pos) {
     auto parent = parentEntity.lock();
     if (parent) {
-        auto parentTransform = parent->getComponent<TransformComponentFB>();
+        auto parentTransform = parent->getComponent<TransformComponent>();
         if (parentTransform) {
             glm::mat4 parentWorld = parentTransform->getWorldMatrix();
             glm::mat4 parentInv = glm::inverse(parentWorld);
@@ -95,10 +95,10 @@ void TransformComponentFB::setWorldPosition(const glm::vec3& pos) {
     setLocalPosition(pos);
 }
 
-glm::quat TransformComponentFB::getWorldRotation() const {
+glm::quat TransformComponent::getWorldRotation() const {
     auto parent = parentEntity.lock();
     if (parent) {
-        auto parentTransform = parent->getComponent<TransformComponentFB>();
+        auto parentTransform = parent->getComponent<TransformComponent>();
         if (parentTransform) {
             return glm::normalize(parentTransform->getWorldRotation() * getLocalRotation());
         }
@@ -106,10 +106,10 @@ glm::quat TransformComponentFB::getWorldRotation() const {
     return getLocalRotation();
 }
 
-void TransformComponentFB::setWorldRotation(const glm::quat& rot) {
+void TransformComponent::setWorldRotation(const glm::quat& rot) {
     auto parent = parentEntity.lock();
     if (parent) {
-        auto parentTransform = parent->getComponent<TransformComponentFB>();
+        auto parentTransform = parent->getComponent<TransformComponent>();
         if (parentTransform) {
             setLocalRotation(glm::normalize(glm::inverse(parentTransform->getWorldRotation()) * rot));
             return;
@@ -118,10 +118,10 @@ void TransformComponentFB::setWorldRotation(const glm::quat& rot) {
     setLocalRotation(rot);
 }
 
-glm::vec3 TransformComponentFB::getWorldScale() const {
+glm::vec3 TransformComponent::getWorldScale() const {
     auto parent = parentEntity.lock();
     if (parent) {
-        auto parentTransform = parent->getComponent<TransformComponentFB>();
+        auto parentTransform = parent->getComponent<TransformComponent>();
         if (parentTransform) {
             glm::vec3 parentScale = parentTransform->getWorldScale();
             return getLocalScale() * parentScale;
@@ -130,10 +130,10 @@ glm::vec3 TransformComponentFB::getWorldScale() const {
     return getLocalScale();
 }
 
-void TransformComponentFB::setWorldScale(const glm::vec3& scale) {
+void TransformComponent::setWorldScale(const glm::vec3& scale) {
     auto parent = parentEntity.lock();
     if (parent) {
-        auto parentTransform = parent->getComponent<TransformComponentFB>();
+        auto parentTransform = parent->getComponent<TransformComponent>();
         if (parentTransform) {
             glm::vec3 parentScale = parentTransform->getWorldScale();
             setLocalScale(scale / parentScale);
@@ -143,29 +143,29 @@ void TransformComponentFB::setWorldScale(const glm::vec3& scale) {
     setLocalScale(scale);
 }
 
-void TransformComponentFB::setParent(std::shared_ptr<GameEntity> parent) {
+void TransformComponent::setParent(std::shared_ptr<GameEntity> parent) {
     parentEntity = parent;
     if (storageHandle != TransformDataStorage::INVALID_HANDLE) {
         getSharedStorage()->setParent(storageHandle, 
-            parent && parent->getComponent<TransformComponentFB>() ? 
-            parent->getComponent<TransformComponentFB>()->storageHandle : 
+            parent && parent->getComponent<TransformComponent>() ? 
+            parent->getComponent<TransformComponent>()->storageHandle : 
             TransformDataStorage::INVALID_HANDLE);
     }
     matrixDirty = true;
 }
 
-void TransformComponentFB::addChild(std::shared_ptr<GameEntity> child) {
+void TransformComponent::addChild(std::shared_ptr<GameEntity> child) {
     childEntities.push_back(child);
 }
 
-void TransformComponentFB::removeChild(std::shared_ptr<GameEntity> child) {
+void TransformComponent::removeChild(std::shared_ptr<GameEntity> child) {
     auto it = std::find(childEntities.begin(), childEntities.end(), child);
     if (it != childEntities.end()) {
         childEntities.erase(it);
     }
 }
 
-void TransformComponentFB::updateWorldMatrix() {
+void TransformComponent::updateWorldMatrix() {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     
     auto storage = getSharedStorage();
@@ -184,7 +184,7 @@ void TransformComponentFB::updateWorldMatrix() {
     // Calculate world matrix
     auto parent = parentEntity.lock();
     if (parent) {
-        auto parentTransform = parent->getComponent<TransformComponentFB>();
+        auto parentTransform = parent->getComponent<TransformComponent>();
         if (parentTransform && parentTransform->storageHandle != TransformDataStorage::INVALID_HANDLE) {
             glm::mat4 parentWorld = parentTransform->getWorldMatrix();
             storage->setWorldMatrix(storageHandle, parentWorld * localMatrix);
@@ -198,17 +198,17 @@ void TransformComponentFB::updateWorldMatrix() {
     matrixDirty = false;
 }
 
-void TransformComponentFB::onUpdate(float deltaTime) {
+void TransformComponent::onUpdate(float deltaTime) {
     if (matrixDirty) {
         updateWorldMatrix();
     }
 }
 
-void TransformComponentFB::onAttach() {
+void TransformComponent::onAttach() {
     // Component attached to entity
 }
 
-void TransformComponentFB::onDetach() {
+void TransformComponent::onDetach() {
     // Component detached from entity
     parentEntity.reset();
     childEntities.clear();

@@ -4,10 +4,10 @@
 #include <string>
 
 /// Render component for Frostbite architecture
-class RenderComponentFB : public Component {
+class RenderComponent : public Component {
 public:
-    RenderComponentFB(const std::string& name = "Render");
-    ~RenderComponentFB() override = default;
+    RenderComponent(const std::string& name = "Render");
+    ~RenderComponent() override = default;
 
     void setMeshName(const std::string& mesh) { meshName = mesh; }
     const std::string& getMeshName() const { return meshName; }
