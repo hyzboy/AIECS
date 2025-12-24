@@ -3,6 +3,7 @@
 #include "TransformStorage.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <vector>
 
 class EntityManager;
 
@@ -68,6 +69,73 @@ public:
         if (isValid()) {
             transformStorage->setScale(id, scale);
         }
+    }
+
+    // Parent-child relationship methods
+    
+    /// Get the parent entity
+    Entity getParent() const {
+        if (!isValid()) return Entity();
+        EntityID parentId = transformStorage->getParent(id);
+        if (parentId == TransformStorage::INVALID_ENTITY) return Entity();
+        return Entity(parentId, transformStorage);
+    }
+
+    /// Set the parent entity
+    void setParent(const Entity& parent) {
+        if (!isValid()) return;
+        
+        if (parent.isValid() && parent.transformStorage == transformStorage) {
+            transformStorage->setParent(id, parent.getID());
+        } else {
+            // Remove parent
+            transformStorage->setParent(id, TransformStorage::INVALID_ENTITY);
+        }
+    }
+
+    /// Check if this entity has a parent
+    bool hasParent() const {
+        if (!isValid()) return false;
+        return transformStorage->getParent(id) != TransformStorage::INVALID_ENTITY;
+    }
+
+    /// Get all child entities
+    std::vector<Entity> getChildren() const {
+        std::vector<Entity> result;
+        if (!isValid()) return result;
+        
+        const auto& childIds = transformStorage->getChildren(id);
+        result.reserve(childIds.size());
+        
+        for (EntityID childId : childIds) {
+            result.emplace_back(childId, transformStorage);
+        }
+        
+        return result;
+    }
+
+    /// Add a child entity
+    void addChild(const Entity& child) {
+        if (!isValid() || !child.isValid()) return;
+        if (transformStorage != child.transformStorage) return;
+        
+        transformStorage->addChild(id, child.getID());
+    }
+
+    /// Remove a child entity (only removes the relationship, doesn't delete the entity)
+    void removeChild(const Entity& child) {
+        if (!isValid() || !child.isValid()) return;
+        if (transformStorage != child.transformStorage) return;
+        
+        transformStorage->removeChild(id, child.getID());
+        // Also clear the child's parent reference
+        transformStorage->setParent(child.getID(), TransformStorage::INVALID_ENTITY);
+    }
+
+    /// Get the number of children
+    size_t getChildCount() const {
+        if (!isValid()) return 0;
+        return transformStorage->getChildren(id).size();
     }
 
     /// Delete the transform (marks it for reuse)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <cstdint>
@@ -27,12 +28,16 @@ public:
             positions[id] = glm::vec3(0.0f);
             rotations[id] = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
             scales[id] = glm::vec3(1.0f);
+            parents[id] = INVALID_ENTITY;
+            children[id].clear();
         } else {
             // Allocate a new slot
             id = static_cast<EntityID>(positions.size());
             positions.emplace_back(0.0f);
             rotations.emplace_back(1.0f, 0.0f, 0.0f, 0.0f);
             scales.emplace_back(1.0f);
+            parents.emplace_back(INVALID_ENTITY);
+            children.emplace_back();
         }
         return id;
     }
@@ -40,6 +45,18 @@ public:
     /// Free a transform slot for reuse
     void deallocate(EntityID id) {
         if (id < positions.size()) {
+            // Remove this entity from its parent's children list
+            if (parents[id] != INVALID_ENTITY) {
+                removeChild(parents[id], id);
+            }
+            
+            // Remove all children relationships (but don't deallocate them)
+            for (EntityID childId : children[id]) {
+                if (childId < parents.size()) {
+                    parents[childId] = INVALID_ENTITY;
+                }
+            }
+            
             freeList.push_back(id);
         }
     }
@@ -85,6 +102,58 @@ public:
         scales[id] = scale;
     }
 
+    // Parent-child relationship accessors
+    EntityID getParent(EntityID id) const {
+        if (id >= parents.size()) return INVALID_ENTITY;
+        return parents[id];
+    }
+
+    void setParent(EntityID id, EntityID parentId) {
+        if (id >= parents.size()) return;
+        
+        // Remove from old parent's children list
+        if (parents[id] != INVALID_ENTITY) {
+            removeChild(parents[id], id);
+        }
+        
+        // Set new parent
+        parents[id] = parentId;
+        
+        // Add to new parent's children list
+        if (parentId != INVALID_ENTITY && parentId < children.size()) {
+            children[parentId].push_back(id);
+        }
+    }
+
+    const std::vector<EntityID>& getChildren(EntityID id) const {
+        static const std::vector<EntityID> emptyList;
+        if (id >= children.size()) return emptyList;
+        return children[id];
+    }
+
+    void addChild(EntityID parentId, EntityID childId) {
+        if (parentId >= children.size() || childId >= parents.size()) return;
+        
+        // Remove child from its old parent
+        if (parents[childId] != INVALID_ENTITY) {
+            removeChild(parents[childId], childId);
+        }
+        
+        // Set new parent-child relationship
+        parents[childId] = parentId;
+        children[parentId].push_back(childId);
+    }
+
+    void removeChild(EntityID parentId, EntityID childId) const {
+        if (parentId >= children.size()) return;
+        
+        auto& childList = const_cast<std::vector<EntityID>&>(children[parentId]);
+        auto it = std::find(childList.begin(), childList.end(), childId);
+        if (it != childList.end()) {
+            childList.erase(it);
+        }
+    }
+
     /// Get the number of allocated transform slots
     size_t size() const {
         return positions.size();
@@ -95,6 +164,10 @@ private:
     std::vector<glm::vec3> positions;
     std::vector<glm::quat> rotations;
     std::vector<glm::vec3> scales;
+    
+    // Parent-child relationships (SOA style)
+    std::vector<EntityID> parents;
+    std::vector<std::vector<EntityID>> children;
     
     // Free list for reusing deallocated slots
     std::vector<EntityID> freeList;

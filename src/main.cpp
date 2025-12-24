@@ -59,25 +59,68 @@ int main() {
               << entity3.getScale().z << ")" << std::endl;
     std::cout << std::endl;
 
-    // Demonstrate transform deletion
-    std::cout << "Deleting entity 2's transform..." << std::endl;
-    entity2.deleteTransform();
-    std::cout << "Entity 2 valid: " << (entity2.isValid() ? "Yes" : "No") << std::endl;
+    // Demonstrate parent-child relationships
+    std::cout << "=== Testing Parent-Child Relationships ===" << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "Setting entity2 and entity3 as children of entity1..." << std::endl;
+    entity1.addChild(entity2);
+    entity1.addChild(entity3);
+    
+    std::cout << "Entity 1 has " << entity1.getChildCount() << " children" << std::endl;
+    std::cout << "Entity 2 has parent: " << (entity2.hasParent() ? "Yes" : "No") << std::endl;
+    std::cout << "Entity 3 has parent: " << (entity3.hasParent() ? "Yes" : "No") << std::endl;
+    
+    // Display children
+    auto children = entity1.getChildren();
+    std::cout << "Entity 1's children: ";
+    for (const auto& child : children) {
+        std::cout << "ID " << child.getID() << " ";
+    }
+    std::cout << std::endl;
+    
+    // Check parent
+    Entity parent2 = entity2.getParent();
+    if (parent2.isValid()) {
+        std::cout << "Entity 2's parent ID: " << parent2.getID() << std::endl;
+    }
     std::cout << std::endl;
 
-    // Create a new entity (should reuse entity 2's slot)
+    // Create more entities for a deeper hierarchy
     Entity entity4 = entityManager.createEntity();
-    std::cout << "Created entity 4 (ID: " << entity4.getID() << ", should reuse freed slot)" << std::endl;
-    entity4.setPosition(glm::vec3(10.0f, 10.0f, 10.0f));
-    std::cout << "Entity 4 - Position: (" 
-              << entity4.getPosition().x << ", " 
-              << entity4.getPosition().y << ", " 
-              << entity4.getPosition().z << ")" << std::endl;
+    Entity entity5 = entityManager.createEntity();
+    
+    entity4.setPosition(glm::vec3(1.0f, 0.0f, 0.0f));
+    entity5.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
+    
+    std::cout << "Creating deeper hierarchy..." << std::endl;
+    entity2.addChild(entity4);
+    entity2.addChild(entity5);
+    
+    std::cout << "Entity 2 now has " << entity2.getChildCount() << " children" << std::endl;
+    std::cout << "Entity 4's parent ID: " << entity4.getParent().getID() << std::endl;
+    std::cout << std::endl;
+
+    // Test removing a child
+    std::cout << "Removing entity3 from entity1's children..." << std::endl;
+    entity1.removeChild(entity3);
+    std::cout << "Entity 1 now has " << entity1.getChildCount() << " children" << std::endl;
+    std::cout << "Entity 3 has parent: " << (entity3.hasParent() ? "Yes" : "No") << std::endl;
+    std::cout << std::endl;
+
+    // Demonstrate transform deletion with children
+    std::cout << "Deleting entity2's transform (which has children)..." << std::endl;
+    size_t beforeCount = entity2.getChildCount();
+    std::cout << "Entity 2 had " << beforeCount << " children before deletion" << std::endl;
+    entity2.deleteTransform();
+    std::cout << "Entity 2 valid: " << (entity2.isValid() ? "Yes" : "No") << std::endl;
+    std::cout << "Entity 4 still valid: " << (entity4.isValid() ? "Yes" : "No") << std::endl;
+    std::cout << "Entity 4 has parent after entity2 deletion: " << (entity4.hasParent() ? "Yes" : "No") << std::endl;
     std::cout << std::endl;
 
     std::cout << "Total entities in storage: " << entityManager.getEntityCount() << std::endl;
     std::cout << std::endl;
-    std::cout << "ECS system with SOA TransformStorage is working correctly!" << std::endl;
+    std::cout << "ECS system with parent-child entity support is working correctly!" << std::endl;
 
     return 0;
 }
