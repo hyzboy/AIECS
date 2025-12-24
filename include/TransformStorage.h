@@ -160,19 +160,19 @@ public:
     // World transform matrix accessors
     const glm::mat4& getWorldMatrix(EntityID id) const {
         static const glm::mat4 identity(1.0f);
-        if (id >= worldMatrices.size()) return identity;
+        if (!isValid(id)) return identity;
         return worldMatrices[id];
     }
 
     void setWorldMatrix(EntityID id, const glm::mat4& matrix) {
-        if (id < worldMatrices.size()) {
+        if (isValid(id)) {
             worldMatrices[id] = matrix;
         }
     }
 
     /// Compute local transform matrix from position, rotation, and scale
     glm::mat4 computeLocalMatrix(EntityID id) const {
-        if (id >= positions.size()) return glm::mat4(1.0f);
+        if (!isValid(id)) return glm::mat4(1.0f);
         
         // Create transformation matrix: T * R * S
         glm::mat4 matrix(1.0f);
@@ -193,11 +193,11 @@ public:
     /// If it has a parent, multiplies parent's world matrix with local matrix
     /// Otherwise, world matrix = local matrix
     void updateWorldMatrix(EntityID id) {
-        if (id >= positions.size()) return;
+        if (!isValid(id)) return;
         
         glm::mat4 localMatrix = computeLocalMatrix(id);
         
-        if (parents[id] != INVALID_ENTITY && parents[id] < worldMatrices.size()) {
+        if (parents[id] != INVALID_ENTITY && isValid(parents[id])) {
             // Has parent: world = parent_world * local
             worldMatrices[id] = worldMatrices[parents[id]] * localMatrix;
         } else {
@@ -208,7 +208,7 @@ public:
 
     /// Update world transform matrix hierarchically for an entity and all its children
     void updateWorldMatrixHierarchy(EntityID id) {
-        if (id >= positions.size()) return;
+        if (!isValid(id)) return;
         
         // Update this entity's world matrix
         updateWorldMatrix(id);
