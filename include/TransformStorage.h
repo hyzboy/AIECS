@@ -144,10 +144,10 @@ public:
         children[parentId].push_back(childId);
     }
 
-    void removeChild(EntityID parentId, EntityID childId) const {
+    void removeChild(EntityID parentId, EntityID childId) {
         if (parentId >= children.size()) return;
         
-        auto& childList = const_cast<std::vector<EntityID>&>(children[parentId]);
+        auto& childList = children[parentId];
         auto it = std::find(childList.begin(), childList.end(), childId);
         if (it != childList.end()) {
             childList.erase(it);

@@ -127,8 +127,7 @@ public:
         if (!isValid() || !child.isValid()) return;
         if (transformStorage != child.transformStorage) return;
         
-        transformStorage->removeChild(id, child.getID());
-        // Also clear the child's parent reference
+        // setParent will handle removing from parent's children list
         transformStorage->setParent(child.getID(), TransformStorage::INVALID_ENTITY);
     }
 
