@@ -1,53 +1,74 @@
-# AIECS
+# AIECS - Frostbite Architecture Edition
 
-一个基于 C++20 和 CMake 的 ECS (Entity Component System) 项目，使用 vcpkg 进行依赖管理，并集成 GLM 数学库。
+一个基于 C++20 和 CMake 的游戏引擎项目，迁移到 Frostbite 架构模式，使用 vcpkg 进行依赖管理，并集成 GLM 数学库。
+
+**包含两个版本：**
+- `aiecs_original` - 原始 ECS 架构（基于 SOA）
+- `aiecs_frostbite` - Frostbite 架构版本（推荐）
 
 ## 项目特点
 
-- **纯组件 ECS 架构**: 真正的实体组件系统，组件之间完全独立，无继承关系
-- **SOA 存储**: 所有组件使用 Structure of Arrays 模式，提高缓存性能
+### Frostbite 版本（推荐）
+- **对象系统**: 统一的 Object 基类，提供生命周期管理
+- **模块化设计**: Module 系统支持独立的引擎子系统
+- **事件驱动**: 完整的 EventSystem 支持发布-订阅模式
+- **世界管理**: World 类管理所有对象和模块
+- **组件系统**: 动态组件管理，支持任意组件组合
+- **层级系统**: 完整的父子关系和变换继承
 - **C++20**: 使用现代 C++ 标准
 - **GLM 数学库**: 用于向量、矩阵和四元数运算
-- **Vulkan 目标**: 设计用于 Vulkan 图形API
 - **坐标系统**: 右手坐标系，Z 轴向上
-- **深度范围**: 0-1（Vulkan 标准）
+
+### 原始版本
+- **纯组件 ECS 架构**: 真正的实体组件系统
+- **SOA 存储**: 所有组件使用 Structure of Arrays 模式
+- **高性能**: 缓存友好的数据布局
 
 ## 架构说明
 
-### 核心组件
+### Frostbite 架构核心
 
-1. **EntityContext** (`include/EntityContext.h`)
-   - 存储系统的上下文结构
-   - 包含指向所有组件存储系统的指针
-   - TransformStorage、CollisionStorage、RenderStorage 等
-   - 通过 EntityManager 初始化并传递给 Entity
+1. **Object** (`include/Object.h`)
+   - 所有游戏对象的基类
+   - 提供唯一ID和名称管理
+   - 定义生命周期回调：onCreate/onUpdate/onDestroy
 
-2. **Entity** (`include/Entity.h`)
-   - 轻量级实体句柄，仅存储组件索引
-   - 不包含任何组件数据或方法
-   - 通过 getComponent() 方法访问组件
-   - 返回 std::optional<Component> 用于安全访问
-   - 构造函数为私有，只能通过 EntityManager 创建
+2. **Module** (`include/Module.h`)
+   - 引擎系统的基类
+   - 支持初始化、更新和关闭
+   - 用于物理、音频、渲染等子系统
 
-3. **组件存储系统 (SOA 模式)**
-   - **TransformStorage** - 位置、旋转、缩放、世界矩阵、父子关系
-   - **CollisionStorage** - 包围盒、碰撞层、启用状态
-   - **RenderStorage** - 网格名、材质名、可见性、阴影投射
+3. **EventSystem** (`include/EventSystem.h`)
+   - 事件分发系统
+   - 支持事件订阅和发送
+   - 包含事件队列用于异步处理
 
-4. **组件访问器**
-   - **TransformComponent** - Transform/TRS 访问器
-     - 本地变换（相对父级）：getLocal/setLocal
-     - 世界变换（绝对坐标）：getWorld/setWorld
-     - 世界变换设置时自动反推本地 TRS
-   - **CollisionComponent** - 碰撞数据访问器
-     - 包围盒、碰撞层、启用/禁用
-   - **RenderComponent** - 渲染数据访问器
-     - 网格、材质、可见性、阴影
+4. **World** (`include/World.h`)
+   - 游戏世界管理器
+   - 管理所有游戏对象
+   - 管理和更新所有模块
+   - 中心访问点
 
-5. **EntityManager** (`include/EntityManager.h`)
-   - 管理实体和所有组件的创建与销毁
-   - 添加/移除组件：addComponent/removeComponent
-   - 内置所有组件存储系统
+5. **GameEntity** (`include/GameEntity.h`)
+   - 游戏对象实体
+   - 支持动态组件管理
+   - 模板化组件访问
+
+6. **组件系统**
+   - **TransformComponentFB** - 3D 变换管理
+     - 本地/世界坐标变换
+     - 父子关系
+     - 自动矩阵更新
+   - **CollisionComponentFB** - 碰撞数据
+   - **RenderComponentFB** - 渲染数据
+
+### 原始 ECS 架构（参考）
+
+1. **EntityContext** - 存储系统上下文
+2. **Entity** - 轻量级实体句柄
+3. **组件存储 (SOA)** - TransformStorage、CollisionStorage、RenderStorage
+4. **组件访问器** - TransformComponent、CollisionComponent、RenderComponent
+5. **EntityManager** - 实体和组件生命周期管理
    - 提供批量更新所有根实体变换的方法
    - 管理实体和组件的创建与销毁
    - 内置 TransformStorage 和 EntityContext
