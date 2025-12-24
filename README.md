@@ -4,8 +4,8 @@
 
 ## 项目特点
 
-- **ECS 架构**: 实现了实体组件系统架构
-- **SOA 存储**: TransformStorage 使用 Structure of Arrays 模式，提高缓存性能
+- **纯组件 ECS 架构**: 真正的实体组件系统，组件之间完全独立，无继承关系
+- **SOA 存储**: 所有组件使用 Structure of Arrays 模式，提高缓存性能
 - **C++20**: 使用现代 C++ 标准
 - **GLM 数学库**: 用于向量、矩阵和四元数运算
 - **Vulkan 目标**: 设计用于 Vulkan 图形API
@@ -18,36 +18,37 @@
 
 1. **EntityContext** (`include/EntityContext.h`)
    - 存储系统的上下文结构
-   - 包含指向各种存储系统的指针（TransformStorage 等）
-   - 便于未来扩展其他系统（如 RenderStorage、PhysicsStorage）
+   - 包含指向所有组件存储系统的指针
+   - TransformStorage、CollisionStorage、RenderStorage 等
    - 通过 EntityManager 初始化并传递给 Entity
 
-2. **TransformStorage** (`include/TransformStorage.h`)
-   - 使用 SOA (Structure of Arrays) 模式存储 Transform 组件
-   - 分离存储位置 (position)、旋转 (rotation)、缩放 (scale) 和世界变换矩阵
-   - 支持父子实体关系（parent/children）存储
-   - 计算层级世界变换矩阵（从本地变换和父级矩阵计算）
-   - 提供高效的缓存局部性
-   - 支持槽位复用机制
+2. **Entity** (`include/Entity.h`)
+   - 轻量级实体句柄，仅存储组件索引
+   - 不包含任何组件数据或方法
+   - 通过 getComponent() 方法访问组件
+   - 返回 std::optional<Component> 用于安全访问
+   - 构造函数为私有，只能通过 EntityManager 创建
 
-3. **Entity** (`include/Entity.h`)
-   - 实体类，作为 Transform 数据的句柄
-   - 持有 EntityContext 指针以访问所有存储系统
-   - 封装 Transform 属性操作（获取、设置、删除）
-   - 支持父子实体关系管理（addChild, removeChild, getParent, getChildren）
-   - 支持世界变换矩阵访问和更新（getWorldMatrix, updateTransform, updateTransformHierarchy）
-   - 提供 Transform 访问器（getTransform）用于更灵活的变换操作
-   - 提供友好的 API，使用起来就像 Entity 自己拥有 Transform 数据
-   - 构造函数为私有，只能通过 EntityManager 创建，防止误用
+3. **组件存储系统 (SOA 模式)**
+   - **TransformStorage** - 位置、旋转、缩放、世界矩阵、父子关系
+   - **CollisionStorage** - 包围盒、碰撞层、启用状态
+   - **RenderStorage** - 网格名、材质名、可见性、阴影投射
 
-4. **Transform** (`include/Transform.h`)
-   - Transform/TRS 访问器类，由 Entity::getTransform() 返回
-   - 支持本地变换（相对于父实体）的读写
-   - 支持世界变换（绝对坐标）的读写
-   - 世界变换设置时自动反推本地 TRS
-   - 提供统一接口操作位置、旋转、缩放
+4. **组件访问器**
+   - **TransformComponent** - Transform/TRS 访问器
+     - 本地变换（相对父级）：getLocal/setLocal
+     - 世界变换（绝对坐标）：getWorld/setWorld
+     - 世界变换设置时自动反推本地 TRS
+   - **CollisionComponent** - 碰撞数据访问器
+     - 包围盒、碰撞层、启用/禁用
+   - **RenderComponent** - 渲染数据访问器
+     - 网格、材质、可见性、阴影
 
 5. **EntityManager** (`include/EntityManager.h`)
+   - 管理实体和所有组件的创建与销毁
+   - 添加/移除组件：addComponent/removeComponent
+   - 内置所有组件存储系统
+   - 提供批量更新所有根实体变换的方法
    - 管理实体和组件的创建与销毁
    - 内置 TransformStorage 和 EntityContext
    - 提供创建 Entity 的工厂方法，并自动传递 EntityContext 指针
@@ -161,18 +162,24 @@ AIECS/
 ├── vcpkg.json                  # vcpkg 依赖清单
 ├── vcpkg-configuration.json    # vcpkg 配置
 ├── include/                    # 头文件目录
+│   ├── ComponentTypes.h        # 组件类型定义
 │   ├── EntityContext.h         # 实体上下文结构
-│   ├── TransformStorage.h     # SOA 模式的 Transform 存储
-│   ├── Entity.h               # 实体类
-│   └── EntityManager.h        # 实体管理器
+│   ├── Entity.h                # 实体类（仅存储组件索引）
+│   ├── EntityManager.h         # 实体管理器
+│   ├── TransformStorage.h      # Transform 组件存储（SOA）
+│   ├── TransformComponent.h    # Transform 组件访问器
+│   ├── CollisionStorage.h      # Collision 组件存储（SOA）
+│   ├── CollisionComponent.h    # Collision 组件访问器
+│   ├── RenderStorage.h         # Render 组件存储（SOA）
+│   └── RenderComponent.h       # Render 组件访问器
 ├── src/
-│   └── main.cpp               # 主程序文件（示例用法）
-└── README.md                  # 本文件
+│   └── main.cpp                # 主程序文件（示例用法）
+└── README.md                   # 本文件
 ```
 
 ## 使用示例
 
-### 基本用法
+### 基本用法 - 创建实体和添加组件
 
 ```cpp
 #include "EntityManager.h"
@@ -180,131 +187,86 @@ AIECS/
 // 创建 EntityManager
 EntityManager entityManager;
 
-// 创建实体
-Entity entity1 = entityManager.createEntity();
-Entity entity2 = entityManager.createEntity();
-
-// 设置 Transform 属性（就像 Entity 拥有这些数据一样）
-entity1.setPosition(glm::vec3(1.0f, 2.0f, 3.0f));
-entity1.setScale(glm::vec3(2.0f, 2.0f, 2.0f));
-
-// 获取 Transform 属性
-glm::vec3 pos = entity1.getPosition();
-glm::vec3 scale = entity1.getScale();
-
-// 设置旋转（使用四元数）
-entity2.setRotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-
-// 删除 Transform（标记为可复用）
-entity2.deleteTransform();
-
-// 销毁实体
-entityManager.destroyEntity(entity1);
-```
-
-### 父子实体关系
-
-```cpp
-// 创建父实体和子实体
-Entity parent = entityManager.createEntity();
-Entity child1 = entityManager.createEntity();
-Entity child2 = entityManager.createEntity();
-
-// 添加子实体
-parent.addChild(child1);
-parent.addChild(child2);
-
-// 检查父子关系
-bool hasParent = child1.hasParent();  // true
-size_t childCount = parent.getChildCount();  // 2
-
-// 获取父实体
-Entity parentEntity = child1.getParent();
-
-// 获取所有子实体
-std::vector<Entity> children = parent.getChildren();
-
-// 移除子实体（只移除关系，不删除实体）
-parent.removeChild(child1);
-
-// 设置新的父实体
-child1.setParent(parent);
-```
-
-### 世界变换矩阵
-
-```cpp
-// 创建层级结构
-Entity parent = entityManager.createEntity();
-Entity child = entityManager.createEntity();
-
-// 设置变换
-parent.setPosition(glm::vec3(10.0f, 0.0f, 0.0f));
-parent.setScale(glm::vec3(2.0f, 2.0f, 2.0f));
-
-child.setPosition(glm::vec3(5.0f, 0.0f, 0.0f));  // 相对于父实体
-parent.addChild(child);
-
-// 更新单个实体的世界变换矩阵
-parent.updateTransform();
-
-// 更新实体及其所有子实体的世界变换矩阵（递归）
-parent.updateTransformHierarchy();
-
-// 获取世界变换矩阵
-glm::mat4 worldMatrix = child.getWorldMatrix();
-
-// 世界坐标位置
-glm::vec3 worldPos(worldMatrix[3][0], worldMatrix[3][1], worldMatrix[3][2]);
-// child 的世界位置 = (20, 0, 0) = 父位置(10) + 子本地位置(5) * 父缩放(2)
-
-// 批量更新所有根实体及其子实体
-entityManager.updateAllTransforms();
-```
-
-### Transform 访问器
-
-```cpp
-// 获取 Transform 访问器
+// 创建实体（不带任何组件）
 Entity entity = entityManager.createEntity();
-Transform transform = entity.getTransform();
 
-// 设置本地变换（相对于父实体）
-transform.setLocalPosition(glm::vec3(10.0f, 20.0f, 30.0f));
-transform.setLocalRotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
-transform.setLocalScale(glm::vec3(2.0f, 2.0f, 2.0f));
+// 添加组件
+entityManager.addTransformComponent(entity);
+entityManager.addRenderComponent(entity);
+entityManager.addCollisionComponent(entity);
 
-// 或一次性设置所有本地 TRS
-transform.setLocalTRS(position, rotation, scale);
-
-// 获取本地变换
-glm::vec3 localPos = transform.getLocalPosition();
-glm::quat localRot = transform.getLocalRotation();
-glm::vec3 localScale = transform.getLocalScale();
-
-// 设置世界变换（自动反推本地变换）
-entity.setParent(parent);
-transform.setWorldPosition(glm::vec3(100.0f, 50.0f, 0.0f));
-transform.setWorldRotation(worldRotation);
-transform.setWorldScale(glm::vec3(1.0f, 1.0f, 1.0f));
-
-// 或一次性设置世界 TRS
-transform.setWorldTRS(worldPos, worldRot, worldScale);
-
-// 从矩阵设置世界变换
-transform.setWorldMatrix(worldMatrix);
-
-// 获取世界变换（从世界矩阵提取）
-glm::vec3 worldPos = transform.getWorldPosition();
-glm::quat worldRot = transform.getWorldRotation();
-glm::vec3 worldScale = transform.getWorldScale();
-glm::mat4 worldMatrix = transform.getWorldMatrix();
+// 检查组件是否存在
+bool hasTransform = entity.hasTransformComponent();  // true
+bool hasRender = entity.hasRenderComponent();        // true
 ```
 
-**说明：**
-- **本地变换**：相对于父实体的变换，直接设置存储的 TRS 值
-- **世界变换**：在世界空间的绝对变换，设置时会根据父实体的世界变换反推本地 TRS
-- 世界变换的获取从当前的世界变换矩阵中提取 TRS 分量
+### 访问和操作 TransformComponent
+
+```cpp
+// 获取 TransformComponent
+auto transform = entity.getTransformComponent();
+if (transform) {
+    // 设置本地变换（相对父级）
+    transform->setLocalPosition(glm::vec3(10.0f, 5.0f, 2.0f));
+    transform->setLocalRotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(0, 0, 1)));
+    transform->setLocalScale(glm::vec3(2.0f, 2.0f, 2.0f));
+    
+    // 获取本地变换
+    glm::vec3 pos = transform->getLocalPosition();
+    glm::quat rot = transform->getLocalRotation();
+    glm::vec3 scale = transform->getLocalScale();
+    
+    // 设置世界变换（自动反推本地变换）
+    transform->setWorldPosition(glm::vec3(100.0f, 50.0f, 0.0f));
+    
+    // 获取世界变换
+    glm::vec3 worldPos = transform->getWorldPosition();
+    glm::mat4 worldMatrix = transform->getWorldMatrix();
+}
+```
+
+### 访问和操作 RenderComponent
+
+```cpp
+// 获取 RenderComponent
+auto render = entity.getRenderComponent();
+if (render) {
+    render->setMeshName("cube.mesh");
+    render->setMaterialName("metal.mat");
+    render->setVisible(true);
+    render->setCastShadows(true);
+    
+    std::string meshName = render->getMeshName();
+    bool visible = render->isVisible();
+}
+```
+
+### 访问和操作 CollisionComponent
+
+```cpp
+// 获取 CollisionComponent
+auto collision = entity.getCollisionComponent();
+if (collision) {
+    collision->setBoundingBox(glm::vec3(-1, -1, -1), glm::vec3(1, 1, 1));
+    collision->setCollisionLayer(1);
+    collision->setEnabled(true);
+    
+    glm::vec3 bbMin = collision->getBoundingBoxMin();
+    uint32_t layer = collision->getCollisionLayer();
+    bool enabled = collision->isEnabled();
+}
+```
+
+### 移除组件
+
+```cpp
+// 移除组件
+entityManager.removeTransformComponent(entity);
+entityManager.removeCollisionComponent(entity);
+
+// 销毁整个实体（包括所有组件）
+entityManager.destroyEntity(entity);
+```
 
 ## 依赖库
 
