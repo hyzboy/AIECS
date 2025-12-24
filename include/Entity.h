@@ -14,8 +14,8 @@ class Entity {
 public:
     using EntityID = TransformStorage::EntityID;
 
-    /// Default constructor creates an invalid entity
-    Entity() : id(TransformStorage::INVALID_ENTITY), context(nullptr) {}
+    /// Default constructor is deleted - entities must be created through EntityManager
+    Entity() = delete;
 
     /// Check if this entity is valid
     bool isValid() const {
@@ -75,9 +75,9 @@ public:
     
     /// Get the parent entity
     Entity getParent() const {
-        if (!isValid()) return Entity();
+        if (!isValid()) return createInvalidEntity();
         EntityID parentId = context->transformStorage->getParent(id);
-        if (parentId == TransformStorage::INVALID_ENTITY) return Entity();
+        if (parentId == TransformStorage::INVALID_ENTITY) return createInvalidEntity();
         return createEntity(parentId, context);
     }
 
@@ -153,6 +153,11 @@ private:
     /// Helper method to create Entity instances from within Entity methods
     static Entity createEntity(EntityID id, EntityContext* ctx) {
         return Entity(id, ctx);
+    }
+
+    /// Helper method to create an invalid Entity
+    static Entity createInvalidEntity() {
+        return Entity(TransformStorage::INVALID_ENTITY, nullptr);
     }
 
     EntityID id;
