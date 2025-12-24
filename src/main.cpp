@@ -195,7 +195,67 @@ int main() {
               << childWorld[3][2] << ")" << std::endl;
     std::cout << std::endl;
 
-    std::cout << "ECS system with hierarchical world transform matrices is working correctly!" << std::endl;
+    // Demonstrate Transform accessor
+    std::cout << "=== Testing Transform Accessor ===" << std::endl;
+    std::cout << std::endl;
+
+    Entity testEntity = entityManager.createEntity();
+    Entity testParent = entityManager.createEntity();
+    
+    // Set up parent
+    testParent.setPosition(glm::vec3(100.0f, 0.0f, 0.0f));
+    testParent.setScale(glm::vec3(0.5f, 0.5f, 0.5f));
+    testParent.updateTransform();
+    
+    // Set up child with parent
+    testEntity.setParent(testParent);
+    
+    // Get Transform accessor
+    Transform transform = testEntity.getTransform();
+    
+    std::cout << "Using Transform accessor for local (relative) transforms:" << std::endl;
+    transform.setLocalPosition(glm::vec3(10.0f, 20.0f, 30.0f));
+    transform.setLocalScale(glm::vec3(2.0f, 2.0f, 2.0f));
+    
+    std::cout << "Local position: (" 
+              << transform.getLocalPosition().x << ", "
+              << transform.getLocalPosition().y << ", "
+              << transform.getLocalPosition().z << ")" << std::endl;
+    std::cout << "Local scale: (" 
+              << transform.getLocalScale().x << ", "
+              << transform.getLocalScale().y << ", "
+              << transform.getLocalScale().z << ")" << std::endl;
+    
+    testEntity.updateTransformHierarchy();
+    
+    std::cout << "World position: (" 
+              << transform.getWorldPosition().x << ", "
+              << transform.getWorldPosition().y << ", "
+              << transform.getWorldPosition().z << ")" << std::endl;
+    std::cout << "World scale: (" 
+              << transform.getWorldScale().x << ", "
+              << transform.getWorldScale().y << ", "
+              << transform.getWorldScale().z << ")" << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "Setting world transform (back-calculates local):" << std::endl;
+    transform.setWorldPosition(glm::vec3(200.0f, 50.0f, 100.0f));
+    
+    std::cout << "After setting world position to (200, 50, 100):" << std::endl;
+    std::cout << "Local position (back-calculated): (" 
+              << transform.getLocalPosition().x << ", "
+              << transform.getLocalPosition().y << ", "
+              << transform.getLocalPosition().z << ")" << std::endl;
+    
+    testEntity.updateTransformHierarchy();
+    
+    std::cout << "World position (verified): (" 
+              << transform.getWorldPosition().x << ", "
+              << transform.getWorldPosition().y << ", "
+              << transform.getWorldPosition().z << ")" << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "ECS system with Transform accessor for local/world transforms is working correctly!" << std::endl;
 
     return 0;
 }

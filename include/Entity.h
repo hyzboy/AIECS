@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EntityContext.h"
+#include "Transform.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
@@ -158,6 +159,25 @@ public:
         if (isValid()) {
             context->transformStorage->updateWorldMatrixHierarchy(id);
         }
+    }
+
+    // Transform accessor
+
+    /// Get a Transform accessor for this entity
+    /// Allows reading/writing both local (relative to parent) and world (absolute) transforms
+    Transform getTransform() {
+        if (!isValid()) {
+            return Transform(TransformStorage::INVALID_ENTITY, nullptr);
+        }
+        return Transform(id, context->transformStorage);
+    }
+
+    /// Get a const Transform accessor for this entity
+    const Transform getTransform() const {
+        if (!isValid()) {
+            return Transform(TransformStorage::INVALID_ENTITY, nullptr);
+        }
+        return Transform(id, context->transformStorage);
     }
 
     /// Delete the transform (marks it for reuse)
