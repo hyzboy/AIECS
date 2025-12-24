@@ -6,8 +6,8 @@
 #include "EntityManager.h"
 
 int main() {
-    std::cout << "AIECS - C++20 ECS Project with SOA Transform Storage" << std::endl;
-    std::cout << "====================================================" << std::endl;
+    std::cout << "AIECS - C++20 ECS Project with Component-Based Architecture" << std::endl;
+    std::cout << "==========================================================" << std::endl;
     std::cout << std::endl;
 
     // Create EntityManager
@@ -26,236 +26,116 @@ int main() {
               << entity3.getID() << ")" << std::endl;
     std::cout << std::endl;
 
-    // Set transform properties on entities (encapsulated as if Entity owns the data)
-    std::cout << "Setting transform properties..." << std::endl;
+    // Add components to entities
+    std::cout << "Adding components to entities..." << std::endl;
+    entityManager.addTransformComponent(entity1);
+    entityManager.addRenderComponent(entity1);
     
-    entity1.setPosition(glm::vec3(1.0f, 2.0f, 3.0f));
-    entity1.setScale(glm::vec3(2.0f, 2.0f, 2.0f));
-    std::cout << "Entity 1 - Position: (" 
-              << entity1.getPosition().x << ", " 
-              << entity1.getPosition().y << ", " 
-              << entity1.getPosition().z << ")" << std::endl;
-    std::cout << "Entity 1 - Scale: (" 
-              << entity1.getScale().x << ", " 
-              << entity1.getScale().y << ", " 
-              << entity1.getScale().z << ")" << std::endl;
-
-    entity2.setPosition(glm::vec3(5.0f, 0.0f, -3.0f));
-    entity2.setRotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-    std::cout << "Entity 2 - Position: (" 
-              << entity2.getPosition().x << ", " 
-              << entity2.getPosition().y << ", " 
-              << entity2.getPosition().z << ")" << std::endl;
-
-    entity3.setPosition(glm::vec3(-2.0f, 4.0f, 1.0f));
-    entity3.setScale(glm::vec3(0.5f, 0.5f, 0.5f));
-    std::cout << "Entity 3 - Position: (" 
-              << entity3.getPosition().x << ", " 
-              << entity3.getPosition().y << ", " 
-              << entity3.getPosition().z << ")" << std::endl;
-    std::cout << "Entity 3 - Scale: (" 
-              << entity3.getScale().x << ", " 
-              << entity3.getScale().y << ", " 
-              << entity3.getScale().z << ")" << std::endl;
+    entityManager.addTransformComponent(entity2);
+    entityManager.addCollisionComponent(entity2);
+    
+    entityManager.addTransformComponent(entity3);
+    entityManager.addRenderComponent(entity3);
+    entityManager.addCollisionComponent(entity3);
+    
+    std::cout << "Entity 1: Transform + Render" << std::endl;
+    std::cout << "Entity 2: Transform + Collision" << std::endl;
+    std::cout << "Entity 3: Transform + Render + Collision" << std::endl;
     std::cout << std::endl;
 
-    // Demonstrate parent-child relationships
-    std::cout << "=== Testing Parent-Child Relationships ===" << std::endl;
+    // Test TransformComponent
+    std::cout << "=== Testing TransformComponent ===" << std::endl;
     std::cout << std::endl;
     
-    std::cout << "Setting entity2 and entity3 as children of entity1..." << std::endl;
-    entity1.addChild(entity2);
-    entity1.addChild(entity3);
-    
-    std::cout << "Entity 1 has " << entity1.getChildCount() << " children" << std::endl;
-    std::cout << "Entity 2 has parent: " << (entity2.hasParent() ? "Yes" : "No") << std::endl;
-    std::cout << "Entity 3 has parent: " << (entity3.hasParent() ? "Yes" : "No") << std::endl;
-    
-    // Display children
-    auto children = entity1.getChildren();
-    std::cout << "Entity 1's children: ";
-    for (const auto& child : children) {
-        std::cout << "ID " << child.getID() << " ";
-    }
-    std::cout << std::endl;
-    
-    // Check parent
-    Entity parent2 = entity2.getParent();
-    if (parent2.isValid()) {
-        std::cout << "Entity 2's parent ID: " << parent2.getID() << std::endl;
+    auto transform1 = entity1.getTransformComponent();
+    if (transform1) {
+        transform1->setLocalPosition(glm::vec3(10.0f, 5.0f, 2.0f));
+        transform1->setLocalScale(glm::vec3(2.0f, 2.0f, 2.0f));
+        
+        std::cout << "Entity 1 Transform:" << std::endl;
+        std::cout << "  Position: (" 
+                  << transform1->getLocalPosition().x << ", "
+                  << transform1->getLocalPosition().y << ", "
+                  << transform1->getLocalPosition().z << ")" << std::endl;
+        std::cout << "  Scale: ("
+                  << transform1->getLocalScale().x << ", "
+                  << transform1->getLocalScale().y << ", "
+                  << transform1->getLocalScale().z << ")" << std::endl;
     }
     std::cout << std::endl;
 
-    // Create more entities for a deeper hierarchy
-    Entity entity4 = entityManager.createEntity();
-    Entity entity5 = entityManager.createEntity();
+    // Test RenderComponent
+    std::cout << "=== Testing RenderComponent ===" << std::endl;
+    std::cout << std::endl;
     
-    entity4.setPosition(glm::vec3(1.0f, 0.0f, 0.0f));
-    entity5.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
-    
-    std::cout << "Creating deeper hierarchy..." << std::endl;
-    entity2.addChild(entity4);
-    entity2.addChild(entity5);
-    
-    std::cout << "Entity 2 now has " << entity2.getChildCount() << " children" << std::endl;
-    std::cout << "Entity 4's parent ID: " << entity4.getParent().getID() << std::endl;
+    auto render1 = entity1.getRenderComponent();
+    if (render1) {
+        render1->setMeshName("cube.mesh");
+        render1->setMaterialName("metal.mat");
+        render1->setVisible(true);
+        render1->setCastShadows(true);
+        
+        std::cout << "Entity 1 Render:" << std::endl;
+        std::cout << "  Mesh: " << render1->getMeshName() << std::endl;
+        std::cout << "  Material: " << render1->getMaterialName() << std::endl;
+        std::cout << "  Visible: " << (render1->isVisible() ? "Yes" : "No") << std::endl;
+        std::cout << "  Casts Shadows: " << (render1->castsShadows() ? "Yes" : "No") << std::endl;
+    }
     std::cout << std::endl;
 
-    // Test removing a child
-    std::cout << "Removing entity3 from entity1's children..." << std::endl;
-    entity1.removeChild(entity3);
-    std::cout << "Entity 1 now has " << entity1.getChildCount() << " children" << std::endl;
-    std::cout << "Entity 3 has parent: " << (entity3.hasParent() ? "Yes" : "No") << std::endl;
+    // Test CollisionComponent
+    std::cout << "=== Testing CollisionComponent ===" << std::endl;
+    std::cout << std::endl;
+    
+    auto collision2 = entity2.getCollisionComponent();
+    if (collision2) {
+        collision2->setBoundingBox(glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+        collision2->setCollisionLayer(1);
+        collision2->setEnabled(true);
+        
+        std::cout << "Entity 2 Collision:" << std::endl;
+        std::cout << "  Bounding Box Min: ("
+                  << collision2->getBoundingBoxMin().x << ", "
+                  << collision2->getBoundingBoxMin().y << ", "
+                  << collision2->getBoundingBoxMin().z << ")" << std::endl;
+        std::cout << "  Bounding Box Max: ("
+                  << collision2->getBoundingBoxMax().x << ", "
+                  << collision2->getBoundingBoxMax().y << ", "
+                  << collision2->getBoundingBoxMax().z << ")" << std::endl;
+        std::cout << "  Collision Layer: " << collision2->getCollisionLayer() << std::endl;
+        std::cout << "  Enabled: " << (collision2->isEnabled() ? "Yes" : "No") << std::endl;
+    }
     std::cout << std::endl;
 
-    // Demonstrate transform deletion with children
-    std::cout << "Deleting entity2's transform (which has children)..." << std::endl;
-    size_t beforeCount = entity2.getChildCount();
-    std::cout << "Entity 2 had " << beforeCount << " children before deletion" << std::endl;
-    entity2.deleteTransform();
-    std::cout << "Entity 2 valid: " << (entity2.isValid() ? "Yes" : "No") << std::endl;
-    std::cout << "Entity 4 still valid: " << (entity4.isValid() ? "Yes" : "No") << std::endl;
-    std::cout << "Entity 4 has parent after entity2 deletion: " << (entity4.hasParent() ? "Yes" : "No") << std::endl;
+    // Test component checks
+    std::cout << "=== Component Presence Check ===" << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "Entity 1 components:" << std::endl;
+    std::cout << "  Has Transform: " << (entity1.hasTransformComponent() ? "Yes" : "No") << std::endl;
+    std::cout << "  Has Collision: " << (entity1.hasCollisionComponent() ? "Yes" : "No") << std::endl;
+    std::cout << "  Has Render: " << (entity1.hasRenderComponent() ? "Yes" : "No") << std::endl;
     std::cout << std::endl;
 
-    std::cout << "Total entities in storage: " << entityManager.getEntityCount() << std::endl;
+    std::cout << "Entity 3 (all components):" << std::endl;
+    std::cout << "  Has Transform: " << (entity3.hasTransformComponent() ? "Yes" : "No") << std::endl;
+    std::cout << "  Has Collision: " << (entity3.hasCollisionComponent() ? "Yes" : "No") << std::endl;
+    std::cout << "  Has Render: " << (entity3.hasRenderComponent() ? "Yes" : "No") << std::endl;
     std::cout << std::endl;
 
-    // Demonstrate World Transform Matrix calculation
-    std::cout << "=== Testing World Transform Matrix ===" << std::endl;
+    // Test component removal
+    std::cout << "=== Testing Component Removal ===" << std::endl;
+    std::cout << std::endl;
+    
+    std::cout << "Removing Collision from Entity 3..." << std::endl;
+    entityManager.removeCollisionComponent(entity3);
+    std::cout << "Entity 3 has Collision: " << (entity3.hasCollisionComponent() ? "Yes" : "No") << std::endl;
     std::cout << std::endl;
 
-    // Create a new hierarchy for testing world transforms
-    Entity parent = entityManager.createEntity();
-    Entity child = entityManager.createEntity();
-    Entity grandchild = entityManager.createEntity();
-
-    // Set up parent transform
-    parent.setPosition(glm::vec3(10.0f, 0.0f, 0.0f));
-    parent.setScale(glm::vec3(2.0f, 2.0f, 2.0f));
-    
-    // Set up child transform (relative to parent)
-    child.setPosition(glm::vec3(5.0f, 0.0f, 0.0f));
-    
-    // Set up grandchild transform (relative to child)
-    grandchild.setPosition(glm::vec3(3.0f, 0.0f, 0.0f));
-
-    // Build hierarchy
-    parent.addChild(child);
-    child.addChild(grandchild);
-
-    std::cout << "Created hierarchy: parent -> child -> grandchild" << std::endl;
-    std::cout << "Parent position: (10, 0, 0), scale: (2, 2, 2)" << std::endl;
-    std::cout << "Child position (local): (5, 0, 0)" << std::endl;
-    std::cout << "Grandchild position (local): (3, 0, 0)" << std::endl;
+    std::cout << "Total entities: " << entityManager.getEntityCount() << std::endl;
     std::cout << std::endl;
 
-    // Update transforms
-    std::cout << "Updating world transforms..." << std::endl;
-    parent.updateTransformHierarchy();
-    
-    // Display world matrices
-    glm::mat4 parentWorld = parent.getWorldMatrix();
-    glm::mat4 childWorld = child.getWorldMatrix();
-    glm::mat4 grandchildWorld = grandchild.getWorldMatrix();
-    
-    std::cout << "Parent world position: (" 
-              << parentWorld[3][0] << ", " 
-              << parentWorld[3][1] << ", " 
-              << parentWorld[3][2] << ")" << std::endl;
-    
-    std::cout << "Child world position: (" 
-              << childWorld[3][0] << ", " 
-              << childWorld[3][1] << ", " 
-              << childWorld[3][2] << ")" << std::endl;
-    
-    std::cout << "Grandchild world position: (" 
-              << grandchildWorld[3][0] << ", " 
-              << grandchildWorld[3][1] << ", " 
-              << grandchildWorld[3][2] << ")" << std::endl;
-    std::cout << std::endl;
-
-    // Test updating all transforms via EntityManager
-    std::cout << "Testing EntityManager.updateAllTransforms()..." << std::endl;
-    parent.setPosition(glm::vec3(20.0f, 5.0f, 0.0f));
-    entityManager.updateAllTransforms();
-    
-    parentWorld = parent.getWorldMatrix();
-    childWorld = child.getWorldMatrix();
-    
-    std::cout << "After moving parent to (20, 5, 0):" << std::endl;
-    std::cout << "Parent world position: (" 
-              << parentWorld[3][0] << ", " 
-              << parentWorld[3][1] << ", " 
-              << parentWorld[3][2] << ")" << std::endl;
-    
-    std::cout << "Child world position: (" 
-              << childWorld[3][0] << ", " 
-              << childWorld[3][1] << ", " 
-              << childWorld[3][2] << ")" << std::endl;
-    std::cout << std::endl;
-
-    // Demonstrate Transform accessor
-    std::cout << "=== Testing Transform Accessor ===" << std::endl;
-    std::cout << std::endl;
-
-    Entity testEntity = entityManager.createEntity();
-    Entity testParent = entityManager.createEntity();
-    
-    // Set up parent
-    testParent.setPosition(glm::vec3(100.0f, 0.0f, 0.0f));
-    testParent.setScale(glm::vec3(0.5f, 0.5f, 0.5f));
-    testParent.updateTransform();
-    
-    // Set up child with parent
-    testEntity.setParent(testParent);
-    
-    // Get Transform accessor
-    Transform transform = testEntity.getTransform();
-    
-    std::cout << "Using Transform accessor for local (relative) transforms:" << std::endl;
-    transform.setLocalPosition(glm::vec3(10.0f, 20.0f, 30.0f));
-    transform.setLocalScale(glm::vec3(2.0f, 2.0f, 2.0f));
-    
-    std::cout << "Local position: (" 
-              << transform.getLocalPosition().x << ", "
-              << transform.getLocalPosition().y << ", "
-              << transform.getLocalPosition().z << ")" << std::endl;
-    std::cout << "Local scale: (" 
-              << transform.getLocalScale().x << ", "
-              << transform.getLocalScale().y << ", "
-              << transform.getLocalScale().z << ")" << std::endl;
-    
-    testEntity.updateTransformHierarchy();
-    
-    std::cout << "World position: (" 
-              << transform.getWorldPosition().x << ", "
-              << transform.getWorldPosition().y << ", "
-              << transform.getWorldPosition().z << ")" << std::endl;
-    std::cout << "World scale: (" 
-              << transform.getWorldScale().x << ", "
-              << transform.getWorldScale().y << ", "
-              << transform.getWorldScale().z << ")" << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "Setting world transform (back-calculates local):" << std::endl;
-    transform.setWorldPosition(glm::vec3(200.0f, 50.0f, 100.0f));
-    
-    std::cout << "After setting world position to (200, 50, 100):" << std::endl;
-    std::cout << "Local position (back-calculated): (" 
-              << transform.getLocalPosition().x << ", "
-              << transform.getLocalPosition().y << ", "
-              << transform.getLocalPosition().z << ")" << std::endl;
-    
-    testEntity.updateTransformHierarchy();
-    
-    std::cout << "World position (verified): (" 
-              << transform.getWorldPosition().x << ", "
-              << transform.getWorldPosition().y << ", "
-              << transform.getWorldPosition().z << ")" << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "ECS system with Transform accessor for local/world transforms is working correctly!" << std::endl;
+    std::cout << "Component-based ECS system is working correctly!" << std::endl;
 
     return 0;
 }

@@ -1,22 +1,30 @@
 #pragma once
 
 #include "TransformStorage.h"
+#include "ComponentTypes.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-/// Transform accessor class for reading and writing entity transforms
+/// TransformComponent accessor for reading and writing entity transforms
 /// Provides both local (relative to parent) and world (absolute) transform access
-class Transform {
+class TransformComponent {
 public:
     using EntityID = TransformStorage::EntityID;
 
-    Transform(EntityID entityId, TransformStorage* storage)
-        : id(entityId), transformStorage(storage) {}
+    TransformComponent(ComponentID compId, TransformStorage* storage)
+        : componentId(compId), transformStorage(storage) {}
 
-    /// Check if this transform is valid
+    /// Check if this component is valid
     bool isValid() const {
-        return transformStorage != nullptr && transformStorage->isValid(id);
+        return componentId != INVALID_COMPONENT && 
+               transformStorage != nullptr && 
+               transformStorage->isValid(componentId);
+    }
+
+    /// Get component ID
+    ComponentID getComponentID() const {
+        return componentId;
     }
 
     // Local transform accessors (relative to parent)
@@ -24,48 +32,48 @@ public:
     /// Get local position (relative to parent)
     glm::vec3 getLocalPosition() const {
         if (!isValid()) return glm::vec3(0.0f);
-        return transformStorage->getPosition(id);
+        return transformStorage->getPosition(componentId);
     }
 
     /// Set local position (relative to parent)
     void setLocalPosition(const glm::vec3& pos) {
         if (isValid()) {
-            transformStorage->setPosition(id, pos);
+            transformStorage->setPosition(componentId, pos);
         }
     }
 
     /// Get local rotation (relative to parent)
     glm::quat getLocalRotation() const {
         if (!isValid()) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        return transformStorage->getRotation(id);
+        return transformStorage->getRotation(componentId);
     }
 
     /// Set local rotation (relative to parent)
     void setLocalRotation(const glm::quat& rot) {
         if (isValid()) {
-            transformStorage->setRotation(id, rot);
+            transformStorage->setRotation(componentId, rot);
         }
     }
 
     /// Get local scale (relative to parent)
     glm::vec3 getLocalScale() const {
         if (!isValid()) return glm::vec3(1.0f);
-        return transformStorage->getScale(id);
+        return transformStorage->getScale(componentId);
     }
 
     /// Set local scale (relative to parent)
     void setLocalScale(const glm::vec3& scale) {
         if (isValid()) {
-            transformStorage->setScale(id, scale);
+            transformStorage->setScale(componentId, scale);
         }
     }
 
     /// Set all local transform components at once
     void setLocalTRS(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale) {
         if (isValid()) {
-            transformStorage->setPosition(id, position);
-            transformStorage->setRotation(id, rotation);
-            transformStorage->setScale(id, scale);
+            transformStorage->setPosition(componentId, position);
+            transformStorage->setRotation(componentId, rotation);
+            transformStorage->setScale(componentId, scale);
         }
     }
 
@@ -74,7 +82,7 @@ public:
     /// Get world transform matrix
     glm::mat4 getWorldMatrix() const {
         if (!isValid()) return glm::mat4(1.0f);
-        return transformStorage->getWorldMatrix(id);
+        return transformStorage->getWorldMatrix(componentId);
     }
 
     /// Get world position (extracted from world matrix)
@@ -112,10 +120,10 @@ public:
     void setWorldPosition(const glm::vec3& worldPos) {
         if (!isValid()) return;
 
-        EntityID parentId = transformStorage->getParent(id);
+        EntityID parentId = transformStorage->getParent(componentId);
         if (parentId == TransformStorage::INVALID_ENTITY) {
             // No parent, world position = local position
-            transformStorage->setPosition(id, worldPos);
+            transformStorage->setPosition(componentId, worldPos);
         } else {
             // Has parent, need to convert world to local
             glm::mat4 parentWorldMatrix = transformStorage->getWorldMatrix(parentId);
@@ -123,7 +131,7 @@ public:
             
             // Transform world position to parent's local space
             glm::vec4 localPos4 = invParentMatrix * glm::vec4(worldPos, 1.0f);
-            transformStorage->setPosition(id, glm::vec3(localPos4));
+            transformStorage->setPosition(componentId, glm::vec3(localPos4));
         }
     }
 
@@ -131,15 +139,15 @@ public:
     void setWorldRotation(const glm::quat& worldRot) {
         if (!isValid()) return;
 
-        EntityID parentId = transformStorage->getParent(id);
+        EntityID parentId = transformStorage->getParent(componentId);
         if (parentId == TransformStorage::INVALID_ENTITY) {
             // No parent, world rotation = local rotation
-            transformStorage->setRotation(id, worldRot);
+            transformStorage->setRotation(componentId, worldRot);
         } else {
             // Has parent, need to convert world to local
             glm::quat parentWorldRot = extractRotationFromMatrix(transformStorage->getWorldMatrix(parentId));
             glm::quat localRot = glm::inverse(parentWorldRot) * worldRot;
-            transformStorage->setRotation(id, localRot);
+            transformStorage->setRotation(componentId, localRot);
         }
     }
 
@@ -147,10 +155,10 @@ public:
     void setWorldScale(const glm::vec3& worldScale) {
         if (!isValid()) return;
 
-        EntityID parentId = transformStorage->getParent(id);
+        EntityID parentId = transformStorage->getParent(componentId);
         if (parentId == TransformStorage::INVALID_ENTITY) {
             // No parent, world scale = local scale
-            transformStorage->setScale(id, worldScale);
+            transformStorage->setScale(componentId, worldScale);
         } else {
             // Has parent, need to divide by parent's world scale
             glm::vec3 parentWorldScale = extractScaleFromMatrix(transformStorage->getWorldMatrix(parentId));
@@ -161,7 +169,7 @@ public:
             localScale.y = (std::abs(parentWorldScale.y) > 1e-6f) ? worldScale.y / parentWorldScale.y : worldScale.y;
             localScale.z = (std::abs(parentWorldScale.z) > 1e-6f) ? worldScale.z / parentWorldScale.z : worldScale.z;
             
-            transformStorage->setScale(id, localScale);
+            transformStorage->setScale(componentId, localScale);
         }
     }
 
@@ -207,6 +215,6 @@ private:
         return glm::quat_cast(rotMat);
     }
 
-    EntityID id;
+    ComponentID componentId;
     TransformStorage* transformStorage;
 };

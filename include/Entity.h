@@ -1,210 +1,107 @@
 #pragma once
 
 #include "EntityContext.h"
-#include "Transform.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <vector>
+#include "ComponentTypes.h"
+#include "TransformComponent.h"
+#include "CollisionComponent.h"
+#include "RenderComponent.h"
+#include <optional>
 
 class EntityManager;
 
-/// Entity class that encapsulates transform operations
-/// Acts as a handle to transform data stored in EntityContext
+/// Entity class - lightweight handle that stores only component indices
 /// Can only be created through EntityManager
+/// All data access must go through component accessors
 class Entity {
 public:
-    using EntityID = TransformStorage::EntityID;
+    using EntityID = uint32_t;
+    static constexpr EntityID INVALID_ENTITY = UINT32_MAX;
 
     /// Default constructor is deleted - entities must be created through EntityManager
     Entity() = delete;
 
     /// Check if this entity is valid
     bool isValid() const {
-        return id != TransformStorage::INVALID_ENTITY && 
-               context != nullptr &&
-               context->transformStorage != nullptr &&
-               context->transformStorage->isValid(id);
+        return entityId != INVALID_ENTITY && context != nullptr;
     }
 
     /// Get the entity ID
     EntityID getID() const {
-        return id;
+        return entityId;
     }
 
-    // Transform property accessors - encapsulated as if Entity owns the data
-    
-    /// Get the position
-    glm::vec3 getPosition() const {
-        if (!isValid()) return glm::vec3(0.0f);
-        return context->transformStorage->getPosition(id);
-    }
+    // Component accessors - returns std::optional with component if it exists
 
-    /// Set the position
-    void setPosition(const glm::vec3& pos) {
-        if (isValid()) {
-            context->transformStorage->setPosition(id, pos);
+    /// Get TransformComponent if entity has one
+    std::optional<TransformComponent> getTransformComponent() {
+        if (!isValid() || transformComponentId == INVALID_COMPONENT) {
+            return std::nullopt;
         }
+        return TransformComponent(transformComponentId, context->transformStorage);
     }
 
-    /// Get the rotation
-    glm::quat getRotation() const {
-        if (!isValid()) return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        return context->transformStorage->getRotation(id);
-    }
-
-    /// Set the rotation
-    void setRotation(const glm::quat& rot) {
-        if (isValid()) {
-            context->transformStorage->setRotation(id, rot);
+    /// Get CollisionComponent if entity has one
+    std::optional<CollisionComponent> getCollisionComponent() {
+        if (!isValid() || collisionComponentId == INVALID_COMPONENT) {
+            return std::nullopt;
         }
+        return CollisionComponent(collisionComponentId, context->collisionStorage);
     }
 
-    /// Get the scale
-    glm::vec3 getScale() const {
-        if (!isValid()) return glm::vec3(1.0f);
-        return context->transformStorage->getScale(id);
-    }
-
-    /// Set the scale
-    void setScale(const glm::vec3& scale) {
-        if (isValid()) {
-            context->transformStorage->setScale(id, scale);
+    /// Get RenderComponent if entity has one
+    std::optional<RenderComponent> getRenderComponent() {
+        if (!isValid() || renderComponentId == INVALID_COMPONENT) {
+            return std::nullopt;
         }
+        return RenderComponent(renderComponentId, context->renderStorage);
     }
 
-    // Parent-child relationship methods
-    
-    /// Get the parent entity
-    Entity getParent() const {
-        if (!isValid()) return createInvalidEntity();
-        EntityID parentId = context->transformStorage->getParent(id);
-        if (parentId == TransformStorage::INVALID_ENTITY) return createInvalidEntity();
-        return createEntity(parentId, context);
+    /// Check if entity has a TransformComponent
+    bool hasTransformComponent() const {
+        return transformComponentId != INVALID_COMPONENT;
     }
 
-    /// Set the parent entity
-    void setParent(const Entity& parent) {
-        if (!isValid()) return;
-        
-        if (parent.isValid() && parent.context == context) {
-            context->transformStorage->setParent(id, parent.getID());
-        } else {
-            // Remove parent
-            context->transformStorage->setParent(id, TransformStorage::INVALID_ENTITY);
-        }
+    /// Check if entity has a CollisionComponent
+    bool hasCollisionComponent() const {
+        return collisionComponentId != INVALID_COMPONENT;
     }
 
-    /// Check if this entity has a parent
-    bool hasParent() const {
-        if (!isValid()) return false;
-        return context->transformStorage->getParent(id) != TransformStorage::INVALID_ENTITY;
+    /// Check if entity has a RenderComponent
+    bool hasRenderComponent() const {
+        return renderComponentId != INVALID_COMPONENT;
     }
 
-    /// Get all child entities
-    std::vector<Entity> getChildren() const {
-        std::vector<Entity> result;
-        if (!isValid()) return result;
-        
-        const auto& childIds = context->transformStorage->getChildren(id);
-        result.reserve(childIds.size());
-        
-        for (EntityID childId : childIds) {
-            result.push_back(createEntity(childId, context));
-        }
-        
-        return result;
+    /// Get transform component ID
+    ComponentID getTransformComponentID() const {
+        return transformComponentId;
     }
 
-    /// Add a child entity
-    void addChild(const Entity& child) {
-        if (!isValid() || !child.isValid()) return;
-        if (context != child.context) return;
-        
-        context->transformStorage->addChild(id, child.getID());
+    /// Get collision component ID
+    ComponentID getCollisionComponentID() const {
+        return collisionComponentId;
     }
 
-    /// Remove a child entity (only removes the relationship, doesn't delete the entity)
-    void removeChild(const Entity& child) {
-        if (!isValid() || !child.isValid()) return;
-        if (context != child.context) return;
-        
-        // setParent will handle removing from parent's children list
-        context->transformStorage->setParent(child.getID(), TransformStorage::INVALID_ENTITY);
-    }
-
-    /// Get the number of children
-    size_t getChildCount() const {
-        if (!isValid()) return 0;
-        return context->transformStorage->getChildren(id).size();
-    }
-
-    // World transform matrix methods
-
-    /// Get the world transform matrix (computed from hierarchy)
-    glm::mat4 getWorldMatrix() const {
-        if (!isValid()) return glm::mat4(1.0f);
-        return context->transformStorage->getWorldMatrix(id);
-    }
-
-    /// Update the world transform matrix for this entity
-    /// Computes from local transform and parent's world matrix
-    void updateTransform() {
-        if (isValid()) {
-            context->transformStorage->updateWorldMatrix(id);
-        }
-    }
-
-    /// Update the world transform matrix for this entity and all its children recursively
-    void updateTransformHierarchy() {
-        if (isValid()) {
-            context->transformStorage->updateWorldMatrixHierarchy(id);
-        }
-    }
-
-    // Transform accessor
-
-    /// Get a Transform accessor for this entity
-    /// Allows reading/writing both local (relative to parent) and world (absolute) transforms
-    Transform getTransform() {
-        if (!isValid()) {
-            return Transform(TransformStorage::INVALID_ENTITY, nullptr);
-        }
-        return Transform(id, context->transformStorage);
-    }
-
-    /// Get a Transform accessor for this entity (const version)
-    Transform getTransform() const {
-        if (!isValid()) {
-            return Transform(TransformStorage::INVALID_ENTITY, nullptr);
-        }
-        return Transform(id, context->transformStorage);
-    }
-
-    /// Delete the transform (marks it for reuse)
-    void deleteTransform() {
-        if (isValid()) {
-            context->transformStorage->deallocate(id);
-            id = TransformStorage::INVALID_ENTITY;
-        }
+    /// Get render component ID
+    ComponentID getRenderComponentID() const {
+        return renderComponentId;
     }
 
 private:
     /// Private constructor - can only be created by EntityManager
-    Entity(EntityID id, EntityContext* ctx)
-        : id(id), context(ctx) {}
+    Entity(EntityID entId, EntityContext* ctx)
+        : entityId(entId)
+        , context(ctx)
+        , transformComponentId(INVALID_COMPONENT)
+        , collisionComponentId(INVALID_COMPONENT)
+        , renderComponentId(INVALID_COMPONENT) {}
 
-    /// Helper method to create Entity instances from within Entity methods
-    static Entity createEntity(EntityID id, EntityContext* ctx) {
-        return Entity(id, ctx);
-    }
-
-    /// Helper method to create an invalid Entity
-    static Entity createInvalidEntity() {
-        return Entity(TransformStorage::INVALID_ENTITY, nullptr);
-    }
-
-    EntityID id;
+    EntityID entityId;
     EntityContext* context;
+    
+    // Component indices
+    ComponentID transformComponentId;
+    ComponentID collisionComponentId;
+    ComponentID renderComponentId;
     
     friend class EntityManager;
 };
