@@ -2,6 +2,7 @@
 
 #include "ComponentTypes.h"
 #include <vector>
+#include <algorithm>
 #include <string>
 
 /// SOA storage for Render components

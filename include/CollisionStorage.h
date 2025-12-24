@@ -2,6 +2,7 @@
 
 #include "ComponentTypes.h"
 #include <vector>
+#include <algorithm>
 #include <glm/glm.hpp>
 
 /// SOA storage for Collision components
