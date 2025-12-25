@@ -256,13 +256,7 @@ int main() {
                     sr.nextSwitchTime = time + switchIntervalDist(rng);  // Schedule next switch
                     rotationSpeeds[sr.entityIndex] = 0.0f;  // Stop rotation
                 } else {
-                    // Continue moving - rotate and translate
-                    transform->setLocalRotation(glm::angleAxis(
-                        time * sr.rotationSpeed, 
-                        glm::vec3(0.0f, 0.0f, 1.0f)
-                    ));
-                    
-                    // Apply movement velocity
+                    // Continue moving - apply movement velocity
                     glm::vec3 currentPos = transform->getLocalPosition();
                     glm::vec3 newPos = currentPos + sr.movementVelocity * deltaTime;
                     
