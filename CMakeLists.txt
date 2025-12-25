@@ -18,6 +18,31 @@ find_package(GLEW REQUIRED)
 # Find GLFW package
 find_package(glfw3 CONFIG REQUIRED)
 
+set(AIECS_HEADER
+include/CollisionComponent.h
+include/CollisionDataStorage.h
+include/EntityComponent.h
+include/EntitySystem.h
+include/EventSystem.h
+include/GameEntity.h
+include/InstanceVBO.h
+include/Material.h
+include/MobilitySwitcherComponent.h
+include/MobilitySwitcherSystem.h
+include/Object.h
+include/RenderCollector.h
+include/RenderComponent.h
+include/RenderSystem.h
+include/ShaderProgram.h
+include/SSBOBuffer.h
+include/TransformComponent.h
+include/TransformComputeSystem.h
+include/TransformDataStorage.h
+include/VAO.h
+include/VBO.h
+include/World.h)
+
+
 # Source files for hybrid architecture (Frostbite OOP + SOA backend)
 set(AIECS_SOURCES
     src/Object.cpp
@@ -39,7 +64,7 @@ set(AIECS_SOURCES
 )
 
 # Create main executable (hybrid architecture)
-add_executable(aiecs ${AIECS_SOURCES})
+add_executable(aiecs ${AIECS_SOURCES} ${AIECS_HEADER})
 
 # Include directories
 target_include_directories(aiecs PRIVATE 
