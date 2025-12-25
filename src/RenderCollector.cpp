@@ -10,14 +10,15 @@ RenderCollector::RenderCollector(const std::string& name)
 }
 
 void RenderCollector::initialize() {
-    std::cout << "[RenderCollector] Initializing with mobility-based separation..." << std::endl;
+    std::cout << "[RenderCollector] Initializing with mobility and material mutability separation..." << std::endl;
     
     // Pre-allocate buffers for performance
     staticModelMatrices.reserve(100);
     staticMaterialIDs.reserve(100);
     movableModelMatrices.reserve(100);
     movableMaterialIDs.reserve(100);
-    uniqueMaterials.reserve(20); // Typically fewer unique materials
+    uniqueStaticMaterials.reserve(20);
+    uniqueDynamicMaterials.reserve(20);
 }
 
 void RenderCollector::update(float deltaTime) {
@@ -40,6 +41,9 @@ void RenderCollector::collectAndRender() {
     movableModelMatrices.clear();
     movableMaterialIDs.clear();
     
+    // Clear dynamic materials every frame
+    uniqueDynamicMaterials.clear();
+    
     // Only rebuild static data if dirty
     if (staticDataDirty) {
         staticModelMatrices.clear();
@@ -47,9 +51,19 @@ void RenderCollector::collectAndRender() {
         staticDataDirty = false;
     }
     
-    // Clear material deduplication data each frame
-    uniqueMaterials.clear();
+    // Only rebuild static materials if dirty
+    if (staticMaterialsDirty) {
+        uniqueStaticMaterials.clear();
+        staticMaterialsDirty = false;
+    }
+    
+    // Clear material deduplication mapping each frame (rebuild from scratch)
     materialToID.clear();
+    
+    // Build material ID mapping starting with static materials
+    for (const auto& mat : uniqueStaticMaterials) {
+        materialToID[mat] = static_cast<unsigned int>(materialToID.size());
+    }
 
     // Collect all entities with both RenderComponent and TransformComponent
     const auto& objects = worldPtr->getObjects();
@@ -70,17 +84,22 @@ void RenderCollector::collectAndRender() {
             auto material = renderComp->getMaterial();
             if (!material) continue;
 
-            // Deduplicate materials
+            // Deduplicate materials - separate static and dynamic
             unsigned int matID;
             auto it = materialToID.find(material);
             if (it != materialToID.end()) {
                 // Material already exists, reuse ID
                 matID = it->second;
             } else {
-                // New material, assign new ID
-                matID = static_cast<unsigned int>(uniqueMaterials.size());
-                uniqueMaterials.push_back(material);
+                // New material, assign new ID and add to appropriate list
+                matID = static_cast<unsigned int>(materialToID.size());
                 materialToID[material] = matID;
+                
+                if (material->isStatic()) {
+                    uniqueStaticMaterials.push_back(material);
+                } else {
+                    uniqueDynamicMaterials.push_back(material);
+                }
             }
 
             // Get transform matrix
@@ -105,10 +124,15 @@ void RenderCollector::collectAndRender() {
     }
 
     // Extract colors from deduplicated materials for rendering
-    std::vector<glm::vec4> materialColors;
-    materialColors.reserve(uniqueMaterials.size());
-    for (const auto& mat : uniqueMaterials) {
-        materialColors.push_back(mat->getColor());
+    // Combine static and dynamic materials
+    std::vector<glm::vec4> allMaterialColors;
+    allMaterialColors.reserve(uniqueStaticMaterials.size() + uniqueDynamicMaterials.size());
+    
+    for (const auto& mat : uniqueStaticMaterials) {
+        allMaterialColors.push_back(mat->getColor());
+    }
+    for (const auto& mat : uniqueDynamicMaterials) {
+        allMaterialColors.push_back(mat->getColor());
     }
 
     // Combine static and movable data for rendering
@@ -128,16 +152,18 @@ void RenderCollector::collectAndRender() {
 
     // Batch render all collected data with deduplicated materials
     if (!allMatrices.empty()) {
-        renderSystemPtr->renderBatch(allMatrices, materialColors, allMaterialIDs);
+        renderSystemPtr->renderBatch(allMatrices, allMaterialColors, allMaterialIDs);
         
         // Log separation stats
         std::cout << "[RenderCollector] Rendered " << allMatrices.size() << " instances: "
                   << staticModelMatrices.size() << " static/stationary, "
                   << movableModelMatrices.size() << " movable | "
-                  << uniqueMaterials.size() << " unique materials";
+                  << uniqueStaticMaterials.size() << " static materials, "
+                  << uniqueDynamicMaterials.size() << " dynamic materials";
         
-        if (uniqueMaterials.size() < allMatrices.size()) {
-            std::cout << " (saved " << (allMatrices.size() - uniqueMaterials.size()) 
+        size_t totalUniqueMaterials = uniqueStaticMaterials.size() + uniqueDynamicMaterials.size();
+        if (totalUniqueMaterials < allMatrices.size()) {
+            std::cout << " (saved " << (allMatrices.size() - totalUniqueMaterials) 
                       << " material uploads)";
         }
         std::cout << std::endl;

@@ -74,9 +74,13 @@ void RenderSystem::shutdown() {
             glDeleteBuffers(1, &VBO);
             VBO = 0;
         }
-        if (instanceDataVBO != 0) {
-            glDeleteBuffers(1, &instanceDataVBO);
-            instanceDataVBO = 0;
+        if (materialIDVBO != 0) {
+            glDeleteBuffers(1, &materialIDVBO);
+            materialIDVBO = 0;
+        }
+        if (matrixIDVBO != 0) {
+            glDeleteBuffers(1, &matrixIDVBO);
+            matrixIDVBO = 0;
         }
         if (materialSSBO != 0) {
             glDeleteBuffers(1, &materialSSBO);
@@ -117,7 +121,8 @@ void RenderSystem::initializeGL() {
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &instanceDataVBO);
+    glGenBuffers(1, &materialIDVBO);
+    glGenBuffers(1, &matrixIDVBO);
     glGenBuffers(1, &materialSSBO);
     glGenBuffers(1, &matrixSSBO);
 
@@ -129,19 +134,18 @@ void RenderSystem::initializeGL() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // Setup instance data buffer (materialID and matrixID per instance)
-    // Each instance has 2 uints: materialID, matrixID
-    glBindBuffer(GL_ARRAY_BUFFER, instanceDataVBO);
-    glBufferData(GL_ARRAY_BUFFER, ssboCapacity * 2 * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
-    
-    // Material ID (location 1)
+    // Setup material ID buffer (location 1)
+    glBindBuffer(GL_ARRAY_BUFFER, materialIDVBO);
+    glBufferData(GL_ARRAY_BUFFER, ssboCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(1);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, 2 * sizeof(unsigned int), (void*)0);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(unsigned int), (void*)0);
     glVertexAttribDivisor(1, 1); // Per instance
     
-    // Matrix ID (location 2)
+    // Setup matrix ID buffer (location 2)
+    glBindBuffer(GL_ARRAY_BUFFER, matrixIDVBO);
+    glBufferData(GL_ARRAY_BUFFER, ssboCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(2);
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, 2 * sizeof(unsigned int), (void*)sizeof(unsigned int));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(unsigned int), (void*)0);
     glVertexAttribDivisor(2, 1); // Per instance
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -195,9 +199,13 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices,
         glBufferData(GL_SHADER_STORAGE_BUFFER, ssboCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, matrixSSBO);
         
-        // Resize instance data VBO
-        glBindBuffer(GL_ARRAY_BUFFER, instanceDataVBO);
-        glBufferData(GL_ARRAY_BUFFER, ssboCapacity * 2 * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
+        // Resize material ID VBO
+        glBindBuffer(GL_ARRAY_BUFFER, materialIDVBO);
+        glBufferData(GL_ARRAY_BUFFER, ssboCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
+        
+        // Resize matrix ID VBO
+        glBindBuffer(GL_ARRAY_BUFFER, matrixIDVBO);
+        glBufferData(GL_ARRAY_BUFFER, ssboCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
         
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -215,17 +223,20 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices,
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    // Build instance data (materialID and matrixID for each instance)
-    std::vector<unsigned int> instanceData;
-    instanceData.reserve(instanceCount * 2);
+    // Build material IDs and matrix IDs
+    std::vector<unsigned int> matrixIDs;
+    matrixIDs.reserve(instanceCount);
     for (size_t i = 0; i < instanceCount; ++i) {
-        instanceData.push_back(materialIDs[i]); // Use provided material ID (deduplicated)
-        instanceData.push_back(static_cast<unsigned int>(i)); // matrixID (1:1 mapping)
+        matrixIDs.push_back(static_cast<unsigned int>(i)); // matrixID (1:1 mapping)
     }
 
-    // Upload instance data
-    glBindBuffer(GL_ARRAY_BUFFER, instanceDataVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, instanceData.size() * sizeof(unsigned int), instanceData.data());
+    // Upload material IDs to separate VBO
+    glBindBuffer(GL_ARRAY_BUFFER, materialIDVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, materialIDs.size() * sizeof(unsigned int), materialIDs.data());
+
+    // Upload matrix IDs to separate VBO
+    glBindBuffer(GL_ARRAY_BUFFER, matrixIDVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, matrixIDs.size() * sizeof(unsigned int), matrixIDs.data());
 
     // Draw all instances in a single call
     glUseProgram(shaderProgram);

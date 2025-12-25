@@ -38,7 +38,8 @@ private:
     unsigned int shaderProgram = 0;
     unsigned int VAO = 0;
     unsigned int VBO = 0;
-    unsigned int instanceDataVBO = 0;  // VBO for instance IDs (materialID, matrixID)
+    unsigned int materialIDVBO = 0;    // VBO for material IDs
+    unsigned int matrixIDVBO = 0;      // VBO for matrix IDs
     
     // SSBO resources
     unsigned int materialSSBO = 0;     // SSBO for materials (colors)

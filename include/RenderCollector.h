@@ -44,10 +44,12 @@ private:
     std::vector<glm::mat4> movableModelMatrices;
     std::vector<unsigned int> movableMaterialIDs;
     
-    // Deduplicated materials
-    std::vector<MaterialPtr> uniqueMaterials;
+    // Deduplicated materials - separated by mutability
+    std::vector<MaterialPtr> uniqueStaticMaterials;
+    std::vector<MaterialPtr> uniqueDynamicMaterials;
     std::unordered_map<MaterialPtr, unsigned int> materialToID;
     
     // Track if static data needs to be rebuilt
     bool staticDataDirty = true;
+    bool staticMaterialsDirty = true;
 };
