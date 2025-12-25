@@ -4,10 +4,10 @@
 
 /// Base class for all engine modules
 /// Modules are singleton-like systems that handle specific functionalities
-class Module : public Object {
+class EntitySystem : public Object {
 public:
-    explicit Module(const std::string& name = "Module");
-    virtual ~Module() = default;
+    explicit EntitySystem(const std::string& name = "Module");
+    virtual ~EntitySystem() = default;
 
     /// Initialize the module
     virtual void initialize() {}

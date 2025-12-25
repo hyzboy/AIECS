@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Module.h"
+#include "EntitySystem.h"
 #include <functional>
 #include <map>
 #include <vector>
@@ -25,7 +25,7 @@ private:
 using EventCallback = std::function<void(const std::shared_ptr<EventData>&)>;
 
 /// EventSystem manages event dispatching and listening
-class EventSystem : public Module {
+class EventSystem : public EntitySystem {
 public:
     EventSystem();
     ~EventSystem() override = default;

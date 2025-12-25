@@ -118,7 +118,7 @@ void main() {
 )";
 
 TransformComputeSystem::TransformComputeSystem(const std::string& name)
-    : Module(name) {
+    : EntitySystem(name) {
 }
 
 TransformComputeSystem::~TransformComputeSystem() {
@@ -135,10 +135,7 @@ void TransformComputeSystem::update(float deltaTime) {
 }
 
 void TransformComputeSystem::shutdown() {
-    if (computeProgram) {
-        glDeleteProgram(computeProgram);
-        computeProgram = 0;
-    }
+    computeProgram.reset();
     
     // SSBOs auto-cleaned by smart pointers
     positionSSBO.reset();
@@ -154,8 +151,11 @@ void TransformComputeSystem::initializeGL() {
     if (glInitialized) return;
     
     std::cout << "[TransformComputeSystem] Creating compute shader program..." << std::endl;
-    
-    computeProgram = createComputeProgram();
+    computeProgram = std::make_unique<ShaderProgram>();
+    if (!computeProgram->createFromCompute(computeShaderSource)) {
+        std::cerr << "[TransformComputeSystem] Failed to create compute shader program" << std::endl;
+        return;
+    }
     
     // Create SSBOs with persistent mapping for zero-copy updates
     positionSSBO = std::make_unique<SSBOBuffer<glm::vec4>>(0, GL_DYNAMIC_DRAW, true);
@@ -205,7 +205,7 @@ void TransformComputeSystem::computeWorldMatrices() {
         return;
     }
     
-    glUseProgram(computeProgram);
+    computeProgram->use();
     
     // Bind SSBOs
     positionSSBO->bind();
@@ -223,47 +223,4 @@ void TransformComputeSystem::computeWorldMatrices() {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
-unsigned int TransformComputeSystem::compileComputeShader(const char* source) {
-    unsigned int shader = glCreateShader(GL_COMPUTE_SHADER);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-    
-    // Check compilation
-    int success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        char infoLog[512];
-        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-        std::cerr << "[TransformComputeSystem] Compute shader compilation failed:\n" << infoLog << std::endl;
-        glDeleteShader(shader);
-        return 0;
-    }
-    
-    return shader;
-}
-
-unsigned int TransformComputeSystem::createComputeProgram() {
-    unsigned int computeShader = compileComputeShader(computeShaderSource);
-    if (!computeShader) {
-        return 0;
-    }
-    
-    unsigned int program = glCreateProgram();
-    glAttachShader(program, computeShader);
-    glLinkProgram(program);
-    
-    // Check linking
-    int success;
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (!success) {
-        char infoLog[512];
-        glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        std::cerr << "[TransformComputeSystem] Compute program linking failed:\n" << infoLog << std::endl;
-        glDeleteProgram(program);
-        program = 0;
-    }
-    
-    glDeleteShader(computeShader);
-    
-    return program;
-}
+// Shader compilation/linking moved to shared ShaderProgram implementation

@@ -1,7 +1,7 @@
 #include "EventSystem.h"
 
 EventSystem::EventSystem()
-    : Module("EventSystem") {
+    : EntitySystem("EventSystem") {
 }
 
 void EventSystem::subscribe(const std::string& eventType, const EventCallback& callback) {

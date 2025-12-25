@@ -6,7 +6,7 @@
 #include <iostream>
 
 RenderCollector::RenderCollector(const std::string& name)
-    : Module(name) {
+    : EntitySystem(name) {
 }
 
 void RenderCollector::initialize() {

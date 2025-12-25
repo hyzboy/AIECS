@@ -8,7 +8,7 @@
 #include <iostream>
 
 MobilitySwitcherSystem::MobilitySwitcherSystem(const std::string& name)
-    : Module(name)
+    : EntitySystem(name)
     , rng(std::random_device{}())  // Use random seed
     , rotSpeedDist(-2.0f, 2.0f)
     , velocityDist(-0.1f, 0.1f) {

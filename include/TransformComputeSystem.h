@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Module.h"
+#include "EntitySystem.h"
 #include "SSBOBuffer.h"
+#include "ShaderProgram.h"
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -11,7 +12,7 @@
 /// GPU-driven flat hierarchy transform system using Compute Shaders
 /// Computes world matrices on GPU from TRS + parent index data
 /// Perfect for CPU粗粒度 + GPU细粒度 architecture
-class TransformComputeSystem : public Module {
+class TransformComputeSystem : public EntitySystem {
 public:
     TransformComputeSystem(const std::string& name = "TransformComputeSystem");
     ~TransformComputeSystem() override;
@@ -50,11 +51,8 @@ public:
     bool isEnabled() const { return enabled; }
 
 private:
-    unsigned int compileComputeShader(const char* source);
-    unsigned int createComputeProgram();
-
     // Compute shader program
-    unsigned int computeProgram = 0;
+    std::unique_ptr<ShaderProgram> computeProgram;
 
     // Input SSBOs (CPU → GPU) - TRS data
     std::unique_ptr<SSBOBuffer<glm::vec4>> positionSSBO;      // Binding 0: vec3 positions (padded to vec4)

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Object.h"
-#include "Module.h"
+#include "EntitySystem.h"
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -38,14 +38,14 @@ public:
     template<typename T, typename... Args>
     std::shared_ptr<T> registerModule(Args&&... args) {
         auto module = std::make_shared<T>(std::forward<Args>(args)...);
-        modules[typeid(T).name()] = module;
+        modules[typeid(T).hash_code()] = module;
         return module;
     }
 
     /// Get a module by type
     template<typename T>
     std::shared_ptr<T> getModule() const {
-        auto it = modules.find(typeid(T).name());
+        auto it = modules.find(typeid(T).hash_code());
         if (it != modules.end()) {
             return std::static_pointer_cast<T>(it->second);
         }
@@ -66,6 +66,6 @@ public:
 
 private:
     std::vector<std::shared_ptr<Object>> objects;
-    std::unordered_map<std::string, std::shared_ptr<Module>> modules;
+    std::unordered_map<size_t, std::shared_ptr<EntitySystem>> modules;
     bool active = false;
 };

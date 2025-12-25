@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Module.h"
+#include "EntitySystem.h"
 #include "World.h"
 #include <random>
 #include <memory>
@@ -8,7 +8,7 @@
 /// System that manages mobility switching for entities with MobilitySwitcherComponent
 /// Following ECS pattern: System iterates over entities with specific components
 /// and processes their behavior each frame
-class MobilitySwitcherSystem : public Module {
+class MobilitySwitcherSystem : public EntitySystem {
 public:
     MobilitySwitcherSystem(const std::string& name = "MobilitySwitcherSystem");
     ~MobilitySwitcherSystem() override;

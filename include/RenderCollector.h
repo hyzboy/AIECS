@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Module.h"
+#include "EntitySystem.h"
 #include "RenderSystem.h"
 #include "Material.h"
 #include <glm/glm.hpp>
@@ -13,7 +13,7 @@ class GameEntity;
 
 /// Collector module that gathers RenderComponent data from all entities
 /// and prepares it for batch rendering with material deduplication
-class RenderCollector : public Module {
+class RenderCollector : public EntitySystem {
 public:
     RenderCollector(const std::string& name = "RenderCollector");
     ~RenderCollector() override = default;

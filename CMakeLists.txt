@@ -21,13 +21,14 @@ find_package(glfw3 CONFIG REQUIRED)
 # Source files for hybrid architecture (Frostbite OOP + SOA backend)
 set(AIECS_SOURCES
     src/Object.cpp
-    src/Module.cpp
+    src/EntitySystem.cpp
     src/EventSystem.cpp
     src/World.cpp
     src/GameEntity.cpp
     src/TransformComponent.cpp
     src/CollisionComponent.cpp
     src/RenderComponent.cpp
+    src/ShaderProgram.cpp
     src/RenderSystem.cpp
     src/RenderCollector.cpp
     src/TransformComputeSystem.cpp

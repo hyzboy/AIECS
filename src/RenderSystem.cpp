@@ -49,7 +49,7 @@ void main()
 )";
 
 RenderSystem::RenderSystem(const std::string& name)
-    : Module(name) {
+    : EntitySystem(name) {
 }
 
 RenderSystem::~RenderSystem() {
@@ -80,10 +80,7 @@ void RenderSystem::shutdown() {
         dynamicMaterialSSBO.reset();
         dynamicMatrixSSBO.reset();
         
-        if (shaderProgram != 0) {
-            glDeleteProgram(shaderProgram);
-            shaderProgram = 0;
-        }
+        shaderProgram.reset();
         glInitialized = false;
     }
     std::cout << "[RenderSystem] Shutdown complete." << std::endl;
@@ -95,7 +92,11 @@ void RenderSystem::initializeGL() {
     std::cout << "[RenderSystem] Initializing dual VAO architecture with ARB_vertex_attrib_binding..." << std::endl;
 
     // Create shader program
-    shaderProgram = createShaderProgram();
+    shaderProgram = std::make_unique<ShaderProgram>();
+    if (!shaderProgram->createFromVertexFragment(vertexShaderSource, fragmentShaderSource)) {
+        std::cerr << "[RenderSystem] Failed to create graphics shader program" << std::endl;
+        return;
+    }
 
     // Rectangle vertices from -0.5,-0.5 to +0.5,+0.5 (two triangles)
     std::vector<float> vertices = {
@@ -186,9 +187,8 @@ void RenderSystem::initializeGL() {
     // Set up orthographic projection for 2D rendering
     projectionMatrix = glm::ortho(-2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
     
-    glUseProgram(shaderProgram);
-    GLint projLoc = glGetUniformLocation(shaderProgram, "projection");
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
+    shaderProgram->use();
+    shaderProgram->setUniformMat4("projection", projectionMatrix);
 
     glInitialized = true;
     std::cout << "[RenderSystem] Dual VAO architecture with ARB_vertex_attrib_binding initialization complete." << std::endl;
@@ -210,7 +210,7 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
         return;
     }
     
-    glUseProgram(shaderProgram);
+    shaderProgram->use();
     
     // ===== RENDER STATIC OBJECTS using staticVAO =====
     if (staticCount > 0 && !staticMaterials.empty()) {
@@ -272,40 +272,4 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
-unsigned int RenderSystem::compileShader(GLenum type, const char* source) {
-    unsigned int shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-    
-    int success;
-    char infoLog[512];
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-        std::cerr << "[RenderSystem] ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    return shader;
-}
-
-unsigned int RenderSystem::createShaderProgram() {
-    unsigned int vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
-    unsigned int fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
-    
-    unsigned int program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
-    
-    int success;
-    char infoLog[512];
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        std::cerr << "[RenderSystem] ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-    
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    
-    return program;
-}
+// Shader compilation/linking moved to shared ShaderProgram implementation

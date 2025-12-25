@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Module.h"
+#include "EntitySystem.h"
 #include "VBO.h"
 #include "VAO.h"
 #include "SSBOBuffer.h"
 #include "InstanceVBO.h"
+#include "ShaderProgram.h"
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <vector>
@@ -12,7 +13,7 @@
 
 /// Dedicated rendering module for drawing 2D rectangles using SSBO-based rendering
 /// Handles all OpenGL rendering operations
-class RenderSystem : public Module {
+class RenderSystem : public EntitySystem {
 public:
     RenderSystem(const std::string& name = "RenderSystem");
     ~RenderSystem() override;
@@ -39,18 +40,16 @@ public:
                      const std::vector<unsigned int>& dynamicMaterialIDs);
 
     /// Get shader program ID
-    unsigned int getShaderProgram() const { return shaderProgram; }
+    unsigned int getShaderProgram() const { return shaderProgram ? shaderProgram->id() : 0; }
     
     /// Mark static data as dirty, forcing re-upload on next render
     /// Call this when static/stationary objects change (added, removed, or marked dirty)
     void markStaticDataDirty() { staticDataUploaded = false; }
 
 private:
-    unsigned int compileShader(GLenum type, const char* source);
-    unsigned int createShaderProgram();
 
     // OpenGL resources
-    unsigned int shaderProgram = 0;
+    std::unique_ptr<ShaderProgram> shaderProgram;
     std::unique_ptr<VAO> staticVAO;   // VAO for static/stationary objects
     std::unique_ptr<VAO> dynamicVAO;  // VAO for dynamic/movable objects
     std::unique_ptr<VBO<float>> vertexVBO;  // Vertex positions (shared)
