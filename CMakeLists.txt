@@ -63,6 +63,14 @@ set(AIECS_SOURCES
     src/main.cpp
 )
 
+# Organize files into Visual Studio filters: put corresponding .h and .cpp into the same group
+source_group("Core" REGULAR_EXPRESSION "include/(GameEntity|EntityComponent|EntitySystem|EventSystem|World|Object)\\.h|src/(main|World|Object|GameEntity|EntitySystem|EventSystem)\\.cpp")
+source_group("Components" REGULAR_EXPRESSION "include/.*Component.*\\.h|src/.*Component.*\\.cpp")
+source_group("Systems" REGULAR_EXPRESSION "include/.*System.*\\.h|src/.*System.*\\.cpp")
+source_group("Rendering" REGULAR_EXPRESSION "include/(Render.*|ShaderProgram|VAO|VBO|InstanceVBO|SSBOBuffer|Material|RenderCollector)\\.h|src/(Render.*|ShaderProgram|VAO|VBO|RenderCollector)\\.cpp")
+source_group("Data" REGULAR_EXPRESSION "include/.*DataStorage.*\\.h|src/.*DataStorage.*\\.cpp")
+source_group("Compute" REGULAR_EXPRESSION "include/TransformComputeSystem\\.h|src/TransformComputeSystem\\.cpp")
+
 # Create main executable (hybrid architecture)
 add_executable(aiecs ${AIECS_SOURCES} ${AIECS_HEADER})
 
