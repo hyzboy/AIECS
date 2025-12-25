@@ -138,53 +138,109 @@ int main() {
     auto world = std::make_shared<World>("MainWorld");
     world->initialize();
 
-    // Create multiple rectangles with different transforms and colors
+    // Create hierarchical structure: Large parent rectangle with smaller children
     std::vector<std::shared_ptr<GameEntity>> entities;
 
-    // Rectangle 1: Center, blue
+    // Parent Rectangle: Large blue rectangle at center
+    std::shared_ptr<GameEntity> parentRect;
     {
-        auto entity = world->createObject<GameEntity>("Rectangle1");
+        auto entity = world->createObject<GameEntity>("ParentRectangle");
         auto transform = entity->addComponent<TransformComponent>();
         auto render = entity->addComponent<RenderComponent>();
         
         transform->setLocalPosition(glm::vec3(0.0f, 0.0f, 0.0f));
-        transform->setLocalScale(glm::vec3(1.0f, 1.0f, 1.0f));
-        render->setColor(glm::vec4(0.2f, 0.6f, 0.8f, 1.0f)); // Blue
+        transform->setLocalScale(glm::vec3(1.5f, 1.5f, 1.0f)); // Large parent
+        render->setColor(glm::vec4(0.2f, 0.4f, 0.6f, 1.0f)); // Dark blue
         render->initializeGL();
         
         entities.push_back(entity);
+        parentRect = entity;
     }
 
-    // Rectangle 2: Left, green, smaller
+    // Child Rectangle 1: Small red rectangle (top-left of parent)
     {
-        auto entity = world->createObject<GameEntity>("Rectangle2");
+        auto entity = world->createObject<GameEntity>("ChildRect1");
         auto transform = entity->addComponent<TransformComponent>();
         auto render = entity->addComponent<RenderComponent>();
         
-        transform->setLocalPosition(glm::vec3(-1.2f, 0.0f, 0.0f));
-        transform->setLocalScale(glm::vec3(0.6f, 0.6f, 1.0f));
-        render->setColor(glm::vec4(0.2f, 0.8f, 0.2f, 1.0f)); // Green
+        // Set parent relationship
+        transform->setParent(parentRect);
+        
+        // Position relative to parent (local coordinates)
+        transform->setLocalPosition(glm::vec3(-0.3f, 0.3f, 0.0f));
+        transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f)); // Small
+        render->setColor(glm::vec4(0.9f, 0.2f, 0.2f, 1.0f)); // Red
         render->initializeGL();
         
         entities.push_back(entity);
     }
 
-    // Rectangle 3: Right, red, rotated
+    // Child Rectangle 2: Small green rectangle (top-right of parent)
     {
-        auto entity = world->createObject<GameEntity>("Rectangle3");
+        auto entity = world->createObject<GameEntity>("ChildRect2");
         auto transform = entity->addComponent<TransformComponent>();
         auto render = entity->addComponent<RenderComponent>();
         
-        transform->setLocalPosition(glm::vec3(1.2f, 0.0f, 0.0f));
-        transform->setLocalScale(glm::vec3(0.8f, 0.8f, 1.0f));
-        transform->setLocalRotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
-        render->setColor(glm::vec4(0.8f, 0.2f, 0.2f, 1.0f)); // Red
+        transform->setParent(parentRect);
+        
+        transform->setLocalPosition(glm::vec3(0.3f, 0.3f, 0.0f));
+        transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
+        render->setColor(glm::vec4(0.2f, 0.9f, 0.2f, 1.0f)); // Green
         render->initializeGL();
         
         entities.push_back(entity);
     }
 
-    std::cout << "Created " << entities.size() << " rectangles." << std::endl;
+    // Child Rectangle 3: Small yellow rectangle (bottom-left of parent)
+    {
+        auto entity = world->createObject<GameEntity>("ChildRect3");
+        auto transform = entity->addComponent<TransformComponent>();
+        auto render = entity->addComponent<RenderComponent>();
+        
+        transform->setParent(parentRect);
+        
+        transform->setLocalPosition(glm::vec3(-0.3f, -0.3f, 0.0f));
+        transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
+        render->setColor(glm::vec4(0.9f, 0.9f, 0.2f, 1.0f)); // Yellow
+        render->initializeGL();
+        
+        entities.push_back(entity);
+    }
+
+    // Child Rectangle 4: Small magenta rectangle (bottom-right of parent)
+    {
+        auto entity = world->createObject<GameEntity>("ChildRect4");
+        auto transform = entity->addComponent<TransformComponent>();
+        auto render = entity->addComponent<RenderComponent>();
+        
+        transform->setParent(parentRect);
+        
+        transform->setLocalPosition(glm::vec3(0.3f, -0.3f, 0.0f));
+        transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
+        render->setColor(glm::vec4(0.9f, 0.2f, 0.9f, 1.0f)); // Magenta
+        render->initializeGL();
+        
+        entities.push_back(entity);
+    }
+
+    // Child Rectangle 5: Tiny white rectangle at center of parent
+    {
+        auto entity = world->createObject<GameEntity>("ChildRect5");
+        auto transform = entity->addComponent<TransformComponent>();
+        auto render = entity->addComponent<RenderComponent>();
+        
+        transform->setParent(parentRect);
+        
+        transform->setLocalPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+        transform->setLocalScale(glm::vec3(0.2f, 0.2f, 1.0f)); // Tiny
+        render->setColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)); // White
+        render->initializeGL();
+        
+        entities.push_back(entity);
+    }
+
+    std::cout << "Created " << entities.size() << " rectangles in hierarchical structure." << std::endl;
+    std::cout << "  1 parent (large blue) + 5 children (red, green, yellow, magenta, white)" << std::endl;
     std::cout << "Entering render loop. Press ESC to exit." << std::endl;
 
     // Render loop
@@ -200,10 +256,16 @@ int main() {
         // Update world
         world->update(deltaTime);
 
-        // Animate the center rectangle rotation
-        auto transform1 = entities[0]->getComponent<TransformComponent>();
-        if (transform1) {
-            transform1->setLocalRotation(glm::angleAxis(time, glm::vec3(0.0f, 0.0f, 1.0f)));
+        // Animate the parent rectangle (rotation and slight scaling)
+        // This should affect all child rectangles due to the transform hierarchy
+        auto parentTransform = parentRect->getComponent<TransformComponent>();
+        if (parentTransform) {
+            // Rotate parent slowly
+            parentTransform->setLocalRotation(glm::angleAxis(time * 0.5f, glm::vec3(0.0f, 0.0f, 1.0f)));
+            
+            // Pulse scale slightly (1.3 to 1.7)
+            float scale = 1.5f + 0.2f * sin(time * 2.0f);
+            parentTransform->setLocalScale(glm::vec3(scale, scale, 1.0f));
         }
 
         // Render
