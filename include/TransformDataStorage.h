@@ -4,6 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 #include <unordered_map>
+#include <functional>
 #include <cstdint>
 
 /// Optimized SOA storage for transform data

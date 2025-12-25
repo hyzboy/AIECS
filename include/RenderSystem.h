@@ -1,9 +1,11 @@
 #pragma once
 
 #include "Module.h"
+#include "SSBOBuffer.h"
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <vector>
+#include <memory>
 
 /// Dedicated rendering module for drawing 2D rectangles using SSBO-based rendering
 /// Handles all OpenGL rendering operations
@@ -46,23 +48,19 @@ private:
     unsigned int VBO = 0;  // Vertex positions (shared)
     
     // Static data resources (GL_STATIC_DRAW - rarely updated)
-    unsigned int staticMaterialIDVBO = 0;    // Static material IDs
-    unsigned int staticMatrixIDVBO = 0;      // Static matrix IDs
-    unsigned int staticMaterialSSBO = 0;     // Static materials SSBO
-    unsigned int staticMatrixSSBO = 0;       // Static matrices SSBO
+    std::unique_ptr<InstanceVBO<unsigned int>> staticMaterialIDVBO;    // Static material IDs
+    std::unique_ptr<InstanceVBO<unsigned int>> staticMatrixIDVBO;      // Static matrix IDs
+    std::unique_ptr<SSBOBuffer<glm::vec4>> staticMaterialSSBO;         // Static materials SSBO
+    std::unique_ptr<SSBOBuffer<glm::mat4>> staticMatrixSSBO;           // Static matrices SSBO
     
     // Dynamic data resources (GL_DYNAMIC_DRAW - updated every frame)
-    unsigned int dynamicMaterialIDVBO = 0;   // Dynamic material IDs
-    unsigned int dynamicMatrixIDVBO = 0;     // Dynamic matrix IDs
-    unsigned int dynamicMaterialSSBO = 0;    // Dynamic materials SSBO
-    unsigned int dynamicMatrixSSBO = 0;      // Dynamic matrices SSBO
+    std::unique_ptr<InstanceVBO<unsigned int>> dynamicMaterialIDVBO;   // Dynamic material IDs
+    std::unique_ptr<InstanceVBO<unsigned int>> dynamicMatrixIDVBO;     // Dynamic matrix IDs
+    std::unique_ptr<SSBOBuffer<glm::vec4>> dynamicMaterialSSBO;        // Dynamic materials SSBO
+    std::unique_ptr<SSBOBuffer<glm::mat4>> dynamicMatrixSSBO;          // Dynamic matrices SSBO
     
     bool glInitialized = false;
 
     // Projection matrix for 2D rendering
     glm::mat4 projectionMatrix;
-    
-    // Buffer capacities
-    size_t staticCapacity = 100;
-    size_t dynamicCapacity = 100;
 };

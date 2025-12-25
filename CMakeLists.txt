@@ -39,8 +39,8 @@ target_include_directories(aiecs PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Link GLM, GLEW, and GLFW
-target_link_libraries(aiecs PRIVATE glm::glm GLEW::GLEW glfw)
+# Link GLM, GLEW, GLFW, and OpenGL
+target_link_libraries(aiecs PRIVATE glm::glm GLEW::GLEW glfw GL)
 
 # Set output directory
 set_target_properties(aiecs PROPERTIES

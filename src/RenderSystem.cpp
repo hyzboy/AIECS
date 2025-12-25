@@ -75,41 +75,16 @@ void RenderSystem::shutdown() {
             VBO = 0;
         }
         
-        // Clean up static resources
-        if (staticMaterialIDVBO != 0) {
-            glDeleteBuffers(1, &staticMaterialIDVBO);
-            staticMaterialIDVBO = 0;
-        }
-        if (staticMatrixIDVBO != 0) {
-            glDeleteBuffers(1, &staticMatrixIDVBO);
-            staticMatrixIDVBO = 0;
-        }
-        if (staticMaterialSSBO != 0) {
-            glDeleteBuffers(1, &staticMaterialSSBO);
-            staticMaterialSSBO = 0;
-        }
-        if (staticMatrixSSBO != 0) {
-            glDeleteBuffers(1, &staticMatrixSSBO);
-            staticMatrixSSBO = 0;
-        }
+        // Clean up using smart pointers (automatic)
+        staticMaterialIDVBO.reset();
+        staticMatrixIDVBO.reset();
+        staticMaterialSSBO.reset();
+        staticMatrixSSBO.reset();
         
-        // Clean up dynamic resources
-        if (dynamicMaterialIDVBO != 0) {
-            glDeleteBuffers(1, &dynamicMaterialIDVBO);
-            dynamicMaterialIDVBO = 0;
-        }
-        if (dynamicMatrixIDVBO != 0) {
-            glDeleteBuffers(1, &dynamicMatrixIDVBO);
-            dynamicMatrixIDVBO = 0;
-        }
-        if (dynamicMaterialSSBO != 0) {
-            glDeleteBuffers(1, &dynamicMaterialSSBO);
-            dynamicMaterialSSBO = 0;
-        }
-        if (dynamicMatrixSSBO != 0) {
-            glDeleteBuffers(1, &dynamicMatrixSSBO);
-            dynamicMatrixSSBO = 0;
-        }
+        dynamicMaterialIDVBO.reset();
+        dynamicMatrixIDVBO.reset();
+        dynamicMaterialSSBO.reset();
+        dynamicMatrixSSBO.reset();
         
         if (shaderProgram != 0) {
             glDeleteProgram(shaderProgram);
@@ -123,7 +98,7 @@ void RenderSystem::shutdown() {
 void RenderSystem::initializeGL() {
     if (glInitialized) return;
 
-    std::cout << "[RenderSystem] Initializing dual SSBO/VBO architecture (static/dynamic separation)..." << std::endl;
+    std::cout << "[RenderSystem] Initializing dual SSBO/VBO architecture with SSBOBuffer helper classes..." << std::endl;
 
     // Create shader program
     shaderProgram = createShaderProgram();
@@ -143,18 +118,6 @@ void RenderSystem::initializeGL() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     
-    // Generate static buffers
-    glGenBuffers(1, &staticMaterialIDVBO);
-    glGenBuffers(1, &staticMatrixIDVBO);
-    glGenBuffers(1, &staticMaterialSSBO);
-    glGenBuffers(1, &staticMatrixSSBO);
-    
-    // Generate dynamic buffers
-    glGenBuffers(1, &dynamicMaterialIDVBO);
-    glGenBuffers(1, &dynamicMatrixIDVBO);
-    glGenBuffers(1, &dynamicMaterialSSBO);
-    glGenBuffers(1, &dynamicMatrixSSBO);
-
     glBindVertexArray(VAO);
 
     // Setup vertex buffer (position data) - shared between static and dynamic
@@ -163,49 +126,29 @@ void RenderSystem::initializeGL() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // Note: We'll bind the appropriate VBOs (static or dynamic) before each draw call
-    // Initialize them here but don't bind to VAO attributes yet
+    // Initialize static resources (GL_STATIC_DRAW)
+    staticMaterialIDVBO = std::make_unique<InstanceVBO<unsigned int>>(1, GL_STATIC_DRAW);
+    staticMatrixIDVBO = std::make_unique<InstanceVBO<unsigned int>>(2, GL_STATIC_DRAW);
+    staticMaterialSSBO = std::make_unique<SSBOBuffer<glm::vec4>>(0, GL_STATIC_DRAW);
+    staticMatrixSSBO = std::make_unique<SSBOBuffer<glm::mat4>>(1, GL_STATIC_DRAW);
     
-    // Setup static material ID buffer (location 1) - GL_STATIC_DRAW
-    glBindBuffer(GL_ARRAY_BUFFER, staticMaterialIDVBO);
-    glBufferData(GL_ARRAY_BUFFER, staticCapacity * sizeof(unsigned int), nullptr, GL_STATIC_DRAW);
+    staticMaterialIDVBO->initialize(100);
+    staticMatrixIDVBO->initialize(100);
+    staticMaterialSSBO->initialize(100);
+    staticMatrixSSBO->initialize(100);
     
-    // Setup static matrix ID buffer (location 2) - GL_STATIC_DRAW
-    glBindBuffer(GL_ARRAY_BUFFER, staticMatrixIDVBO);
-    glBufferData(GL_ARRAY_BUFFER, staticCapacity * sizeof(unsigned int), nullptr, GL_STATIC_DRAW);
+    // Initialize dynamic resources (GL_DYNAMIC_DRAW)
+    dynamicMaterialIDVBO = std::make_unique<InstanceVBO<unsigned int>>(1, GL_DYNAMIC_DRAW);
+    dynamicMatrixIDVBO = std::make_unique<InstanceVBO<unsigned int>>(2, GL_DYNAMIC_DRAW);
+    dynamicMaterialSSBO = std::make_unique<SSBOBuffer<glm::vec4>>(0, GL_DYNAMIC_DRAW);
+    dynamicMatrixSSBO = std::make_unique<SSBOBuffer<glm::mat4>>(1, GL_DYNAMIC_DRAW);
     
-    // Setup dynamic material ID buffer (location 1) - GL_DYNAMIC_DRAW
-    glBindBuffer(GL_ARRAY_BUFFER, dynamicMaterialIDVBO);
-    glBufferData(GL_ARRAY_BUFFER, dynamicCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
-    
-    // Setup dynamic matrix ID buffer (location 2) - GL_DYNAMIC_DRAW
-    glBindBuffer(GL_ARRAY_BUFFER, dynamicMatrixIDVBO);
-    glBufferData(GL_ARRAY_BUFFER, dynamicCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
+    dynamicMaterialIDVBO->initialize(100);
+    dynamicMatrixIDVBO->initialize(100);
+    dynamicMaterialSSBO->initialize(100);
+    dynamicMatrixSSBO->initialize(100);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-
-    // Setup Static Material SSBO (binding point 0) - GL_STATIC_DRAW
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, staticMaterialSSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, staticCapacity * sizeof(glm::vec4), nullptr, GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, staticMaterialSSBO);
-
-    // Setup Static Matrix SSBO (binding point 1) - GL_STATIC_DRAW
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, staticMatrixSSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, staticCapacity * sizeof(glm::mat4), nullptr, GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, staticMatrixSSBO);
-    
-    // Setup Dynamic Material SSBO (binding point 0) - GL_DYNAMIC_DRAW
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, dynamicMaterialSSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, dynamicCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, dynamicMaterialSSBO);
-
-    // Setup Dynamic Matrix SSBO (binding point 1) - GL_DYNAMIC_DRAW
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, dynamicMatrixSSBO);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, dynamicCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, dynamicMatrixSSBO);
-    
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Set up orthographic projection for 2D rendering
     projectionMatrix = glm::ortho(-2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
@@ -215,7 +158,7 @@ void RenderSystem::initializeGL() {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 
     glInitialized = true;
-    std::cout << "[RenderSystem] Dual SSBO/VBO architecture initialization complete." << std::endl;
+    std::cout << "[RenderSystem] Dual SSBO/VBO architecture with SSBOBuffer helper classes initialization complete." << std::endl;
 }
 
 void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
@@ -239,60 +182,26 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
     
     // === RENDER STATIC OBJECTS ===
     if (staticCount > 0 && !staticMaterials.empty()) {
-        // Resize static buffers if needed (rare - only on first frame or when static objects added)
-        size_t requiredStaticCapacity = std::max(staticCount, staticMaterials.size());
-        if (requiredStaticCapacity > staticCapacity) {
-            staticCapacity = requiredStaticCapacity * 2;
-            
-            // Resize static material SSBO
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, staticMaterialSSBO);
-            glBufferData(GL_SHADER_STORAGE_BUFFER, staticCapacity * sizeof(glm::vec4), nullptr, GL_STATIC_DRAW);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, staticMaterialSSBO);
-            
-            // Resize static matrix SSBO
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, staticMatrixSSBO);
-            glBufferData(GL_SHADER_STORAGE_BUFFER, staticCapacity * sizeof(glm::mat4), nullptr, GL_STATIC_DRAW);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, staticMatrixSSBO);
-            
-            // Resize static material ID VBO
-            glBindBuffer(GL_ARRAY_BUFFER, staticMaterialIDVBO);
-            glBufferData(GL_ARRAY_BUFFER, staticCapacity * sizeof(unsigned int), nullptr, GL_STATIC_DRAW);
-            
-            // Resize static matrix ID VBO
-            glBindBuffer(GL_ARRAY_BUFFER, staticMatrixIDVBO);
-            glBufferData(GL_ARRAY_BUFFER, staticCapacity * sizeof(unsigned int), nullptr, GL_STATIC_DRAW);
-            
-            std::cout << "[RenderSystem] Resized static buffers to " << staticCapacity << std::endl;
-        }
-        
-        // Upload static data (only when dirty - handled by RenderCollector)
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, staticMaterialSSBO);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, staticMaterials.size() * sizeof(glm::vec4), staticMaterials.data());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, staticMaterialSSBO);
-        
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, staticMatrixSSBO);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, staticCount * sizeof(glm::mat4), staticMatrices.data());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, staticMatrixSSBO);
+        // Upload static data using helper classes (automatic resizing)
+        staticMaterialSSBO->uploadData(staticMaterials);
+        staticMatrixSSBO->uploadData(staticMatrices);
+        staticMaterialIDVBO->uploadData(staticMaterialIDs);
         
         // Build static matrix IDs (1:1 mapping)
-        std::vector<unsigned int> staticMatrixIDs;
-        staticMatrixIDs.reserve(staticCount);
+        std::vector<unsigned int> staticMatrixIDs_data;
+        staticMatrixIDs_data.reserve(staticCount);
         for (size_t i = 0; i < staticCount; ++i) {
-            staticMatrixIDs.push_back(static_cast<unsigned int>(i));
+            staticMatrixIDs_data.push_back(static_cast<unsigned int>(i));
         }
+        staticMatrixIDVBO->uploadData(staticMatrixIDs_data);
         
-        // Upload static instance IDs
-        glBindBuffer(GL_ARRAY_BUFFER, staticMaterialIDVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, staticMaterialIDs.size() * sizeof(unsigned int), staticMaterialIDs.data());
-        glEnableVertexAttribArray(1);
-        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(unsigned int), (void*)0);
-        glVertexAttribDivisor(1, 1);
+        // Bind SSBOs
+        staticMaterialSSBO->bind();
+        staticMatrixSSBO->bind();
         
-        glBindBuffer(GL_ARRAY_BUFFER, staticMatrixIDVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, staticMatrixIDs.size() * sizeof(unsigned int), staticMatrixIDs.data());
-        glEnableVertexAttribArray(2);
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(unsigned int), (void*)0);
-        glVertexAttribDivisor(2, 1);
+        // Setup vertex attributes
+        staticMaterialIDVBO->setupAttribute(1, true);  // 1 component, integer
+        staticMatrixIDVBO->setupAttribute(1, true);    // 1 component, integer
         
         // Draw static instances
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<GLsizei>(staticCount));
@@ -300,60 +209,26 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
     
     // === RENDER DYNAMIC OBJECTS ===
     if (dynamicCount > 0 && !dynamicMaterials.empty()) {
-        // Resize dynamic buffers if needed (more common than static resize)
-        size_t requiredDynamicCapacity = std::max(dynamicCount, dynamicMaterials.size());
-        if (requiredDynamicCapacity > dynamicCapacity) {
-            dynamicCapacity = requiredDynamicCapacity * 2;
-            
-            // Resize dynamic material SSBO
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, dynamicMaterialSSBO);
-            glBufferData(GL_SHADER_STORAGE_BUFFER, dynamicCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, dynamicMaterialSSBO);
-            
-            // Resize dynamic matrix SSBO
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, dynamicMatrixSSBO);
-            glBufferData(GL_SHADER_STORAGE_BUFFER, dynamicCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, dynamicMatrixSSBO);
-            
-            // Resize dynamic material ID VBO
-            glBindBuffer(GL_ARRAY_BUFFER, dynamicMaterialIDVBO);
-            glBufferData(GL_ARRAY_BUFFER, dynamicCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
-            
-            // Resize dynamic matrix ID VBO
-            glBindBuffer(GL_ARRAY_BUFFER, dynamicMatrixIDVBO);
-            glBufferData(GL_ARRAY_BUFFER, dynamicCapacity * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
-            
-            std::cout << "[RenderSystem] Resized dynamic buffers to " << dynamicCapacity << std::endl;
-        }
-        
-        // Upload dynamic data (every frame)
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, dynamicMaterialSSBO);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, dynamicMaterials.size() * sizeof(glm::vec4), dynamicMaterials.data());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, dynamicMaterialSSBO);
-        
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, dynamicMatrixSSBO);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, dynamicCount * sizeof(glm::mat4), dynamicMatrices.data());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, dynamicMatrixSSBO);
+        // Upload dynamic data using helper classes (automatic resizing, every frame)
+        dynamicMaterialSSBO->uploadData(dynamicMaterials);
+        dynamicMatrixSSBO->uploadData(dynamicMatrices);
+        dynamicMaterialIDVBO->uploadData(dynamicMaterialIDs);
         
         // Build dynamic matrix IDs (1:1 mapping)
-        std::vector<unsigned int> dynamicMatrixIDs;
-        dynamicMatrixIDs.reserve(dynamicCount);
+        std::vector<unsigned int> dynamicMatrixIDs_data;
+        dynamicMatrixIDs_data.reserve(dynamicCount);
         for (size_t i = 0; i < dynamicCount; ++i) {
-            dynamicMatrixIDs.push_back(static_cast<unsigned int>(i));
+            dynamicMatrixIDs_data.push_back(static_cast<unsigned int>(i));
         }
+        dynamicMatrixIDVBO->uploadData(dynamicMatrixIDs_data);
         
-        // Upload dynamic instance IDs
-        glBindBuffer(GL_ARRAY_BUFFER, dynamicMaterialIDVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, dynamicMaterialIDs.size() * sizeof(unsigned int), dynamicMaterialIDs.data());
-        glEnableVertexAttribArray(1);
-        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(unsigned int), (void*)0);
-        glVertexAttribDivisor(1, 1);
+        // Bind SSBOs
+        dynamicMaterialSSBO->bind();
+        dynamicMatrixSSBO->bind();
         
-        glBindBuffer(GL_ARRAY_BUFFER, dynamicMatrixIDVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, dynamicMatrixIDs.size() * sizeof(unsigned int), dynamicMatrixIDs.data());
-        glEnableVertexAttribArray(2);
-        glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(unsigned int), (void*)0);
-        glVertexAttribDivisor(2, 1);
+        // Setup vertex attributes
+        dynamicMaterialIDVBO->setupAttribute(1, true);  // 1 component, integer
+        dynamicMatrixIDVBO->setupAttribute(1, true);    // 1 component, integer
         
         // Draw dynamic instances
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<GLsizei>(dynamicCount));
