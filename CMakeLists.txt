@@ -28,6 +28,7 @@ set(AIECS_SOURCES
     src/RenderComponent.cpp
     src/RenderSystem.cpp
     src/RenderCollector.cpp
+    src/TransformComputeSystem.cpp
     src/VAO.cpp
     src/main.cpp
 )
