@@ -19,7 +19,7 @@ public:
     /// Initialize OpenGL resources (shaders, VAO/VBO)
     void initializeGL();
 
-    /// Render a batch of rectangles
+    /// Render a batch of rectangles using instanced rendering
     /// @param modelMatrices - World transform matrices for each rectangle
     /// @param colors - Colors for each rectangle
     void renderBatch(const std::vector<glm::mat4>& modelMatrices, 
@@ -31,13 +31,19 @@ public:
 private:
     unsigned int compileShader(GLenum type, const char* source);
     unsigned int createShaderProgram();
+    void setupInstanceBuffers();
 
     // OpenGL resources
     unsigned int shaderProgram = 0;
     unsigned int VAO = 0;
     unsigned int VBO = 0;
+    unsigned int instanceMatrixVBO = 0;  // VBO for instance matrices
+    unsigned int instanceColorVBO = 0;   // VBO for instance colors
     bool glInitialized = false;
 
     // Projection matrix for 2D rendering
     glm::mat4 projectionMatrix;
+    
+    // Instance buffer capacity
+    size_t instanceBufferCapacity = 100;
 };

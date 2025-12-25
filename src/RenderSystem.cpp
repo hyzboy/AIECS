@@ -3,30 +3,33 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
-// Vertex shader with model matrix for transformations
+// Vertex shader with instanced rendering support
 const char* vertexShaderSource = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
+layout (location = 1) in mat4 aInstanceMatrix;
+layout (location = 5) in vec4 aInstanceColor;
 
-uniform mat4 model;
 uniform mat4 projection;
+
+out vec4 vColor;
 
 void main()
 {
-    gl_Position = projection * model * vec4(aPos, 1.0);
+    gl_Position = projection * aInstanceMatrix * vec4(aPos, 1.0);
+    vColor = aInstanceColor;
 }
 )";
 
-// Fragment shader with color uniform
+// Fragment shader with per-instance color
 const char* fragmentShaderSource = R"(
 #version 330 core
+in vec4 vColor;
 out vec4 FragColor;
-
-uniform vec4 rectColor;
 
 void main()
 {
-    FragColor = rectColor;
+    FragColor = vColor;
 }
 )";
 
@@ -56,6 +59,14 @@ void RenderSystem::shutdown() {
             glDeleteBuffers(1, &VBO);
             VBO = 0;
         }
+        if (instanceMatrixVBO != 0) {
+            glDeleteBuffers(1, &instanceMatrixVBO);
+            instanceMatrixVBO = 0;
+        }
+        if (instanceColorVBO != 0) {
+            glDeleteBuffers(1, &instanceColorVBO);
+            instanceColorVBO = 0;
+        }
         if (shaderProgram != 0) {
             glDeleteProgram(shaderProgram);
             shaderProgram = 0;
@@ -68,7 +79,7 @@ void RenderSystem::shutdown() {
 void RenderSystem::initializeGL() {
     if (glInitialized) return;
 
-    std::cout << "[RenderSystem] Initializing OpenGL resources..." << std::endl;
+    std::cout << "[RenderSystem] Initializing OpenGL resources for instanced rendering..." << std::endl;
 
     // Create shader program
     shaderProgram = createShaderProgram();
@@ -87,14 +98,35 @@ void RenderSystem::initializeGL() {
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &instanceMatrixVBO);
+    glGenBuffers(1, &instanceColorVBO);
 
     glBindVertexArray(VAO);
 
+    // Setup vertex buffer (position data)
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+
+    // Setup instance matrix buffer (location 1-4, mat4 takes 4 attribute slots)
+    glBindBuffer(GL_ARRAY_BUFFER, instanceMatrixVBO);
+    glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+    
+    // mat4 attributes (location 1-4)
+    for (unsigned int i = 0; i < 4; i++) {
+        glEnableVertexAttribArray(1 + i);
+        glVertexAttribPointer(1 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), 
+                             (void*)(sizeof(glm::vec4) * i));
+        glVertexAttribDivisor(1 + i, 1); // Per instance, not per vertex
+    }
+
+    // Setup instance color buffer (location 5)
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
+    glVertexAttribDivisor(5, 1); // Per instance
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -107,36 +139,40 @@ void RenderSystem::initializeGL() {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 
     glInitialized = true;
-    std::cout << "[RenderSystem] OpenGL initialization complete." << std::endl;
+    std::cout << "[RenderSystem] Instanced rendering initialization complete." << std::endl;
 }
 
 void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices, 
                                 const std::vector<glm::vec4>& colors) {
     if (!glInitialized) return;
-    if (modelMatrices.size() != colors.size()) return;
+    if (modelMatrices.empty() || modelMatrices.size() != colors.size()) return;
 
-    glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
-
-    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
-    GLint colorLoc = glGetUniformLocation(shaderProgram, "rectColor");
-
-    // Render each rectangle
-    for (size_t i = 0; i < modelMatrices.size(); ++i) {
-        // Set model matrix
-        if (modelLoc != -1) {
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrices[i]));
-        }
-
-        // Set color
-        if (colorLoc != -1) {
-            glUniform4fv(colorLoc, 1, glm::value_ptr(colors[i]));
-        }
-
-        // Draw the rectangle
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+    size_t instanceCount = modelMatrices.size();
+    
+    // Resize buffers if needed
+    if (instanceCount > instanceBufferCapacity) {
+        instanceBufferCapacity = instanceCount * 2; // Double the capacity
+        
+        glBindBuffer(GL_ARRAY_BUFFER, instanceMatrixVBO);
+        glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+        
+        glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+        glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+        
+        std::cout << "[RenderSystem] Resized instance buffers to " << instanceBufferCapacity << std::endl;
     }
 
+    // Upload instance data
+    glBindBuffer(GL_ARRAY_BUFFER, instanceMatrixVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, instanceCount * sizeof(glm::mat4), modelMatrices.data());
+
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, instanceCount * sizeof(glm::vec4), colors.data());
+
+    // Draw all instances in a single call
+    glUseProgram(shaderProgram);
+    glBindVertexArray(VAO);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<GLsizei>(instanceCount));
     glBindVertexArray(0);
 }
 
