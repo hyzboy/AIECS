@@ -12,7 +12,8 @@ public:
     ~MobilitySwitcherComponent() override = default;
 
     /// Configure switching behavior
-    /// @param interval - Time range (min, max) between switches in seconds
+    /// @param minInterval - Minimum time between switches in seconds
+    /// @param maxInterval - Maximum time between switches in seconds
     /// @param duration - How long to stay in Movable state in seconds
     void configure(float minInterval, float maxInterval, float duration);
 
