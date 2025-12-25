@@ -29,6 +29,8 @@ set(AIECS_SOURCES
     src/RenderSystem.cpp
     src/RenderCollector.cpp
     src/TransformComputeSystem.cpp
+    src/MobilitySwitcherComponent.cpp
+    src/MobilitySwitcherSystem.cpp
     src/VAO.cpp
     src/main.cpp
 )

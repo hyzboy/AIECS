@@ -13,6 +13,8 @@
 #include "RenderComponent.h"
 #include "RenderSystem.h"
 #include "RenderCollector.h"
+#include "MobilitySwitcherComponent.h"
+#include "MobilitySwitcherSystem.h"
 #include "Material.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -78,6 +80,12 @@ int main() {
     renderCollector->setWorld(world);
     renderCollector->setRenderSystem(renderSystem);
 
+    // Register MobilitySwitcherSystem module (NEW: ECS-based mobility switching)
+    auto mobilitySwitcherSystem = world->registerModule<MobilitySwitcherSystem>();
+    mobilitySwitcherSystem->initialize();
+    mobilitySwitcherSystem->setWorld(world);
+    mobilitySwitcherSystem->setScreenBoundary(0.95f);
+
     std::cout << "\n=== Creating 10,000+ rectangles ===" << std::endl;
     
     // Random number generator
@@ -94,17 +102,6 @@ int main() {
     std::vector<std::shared_ptr<GameEntity>> entities;
     std::vector<float> rotationSpeeds;  // Store rotation speeds for animated objects
     
-    // Structure to track rectangles that can switch mobility
-    struct SwitchableRect {
-        size_t entityIndex;          // Index in entities vector
-        float nextSwitchTime;        // Time when next switch should occur
-        bool isCurrentlyMoving;      // Whether it's currently in movable state
-        float movementEndTime;       // Time when movement should end (back to static)
-        float rotationSpeed;         // Speed when moving
-        glm::vec3 movementVelocity;  // Velocity when moving
-    };
-    std::vector<SwitchableRect> switchableRects;
-    
     // Create shared materials for better performance (material deduplication)
     std::vector<MaterialPtr> sharedMaterials;
     for (int i = 0; i < 20; ++i) {
@@ -118,14 +115,15 @@ int main() {
     // === Part 1: Background grid of static small rectangles (8000 rectangles) ===
     std::cout << "Creating 8000 static background rectangles..." << std::endl;
     int staticCount = 0;
+    int switchableCount = 0;
     
-    // Random number generators for switchable rectangles
+    // Configuration for switchable rectangles (ECS-based)
     static constexpr int SWITCHABLE_PERCENTAGE = 10;  // 10% of static rectangles can switch
     static constexpr float MOVEMENT_DURATION_SECONDS = 1.0f;  // Duration when movable
+    static constexpr float MIN_SWITCH_INTERVAL = 2.0f;  // Minimum time between switches
+    static constexpr float MAX_SWITCH_INTERVAL = 5.0f;  // Maximum time between switches
     std::uniform_int_distribution<int> switchSelectDist(0, 99);  // For percentage check
-    std::uniform_real_distribution<float> switchIntervalDist(2.0f, 5.0f);  // Switch every 2-5 seconds
-    std::uniform_real_distribution<float> moveRotSpeedDist(-2.0f, 2.0f);  // Rotation speed when moving
-    std::uniform_real_distribution<float> moveVelDist(-0.1f, 0.1f);  // Movement velocity when moving
+    std::uniform_real_distribution<float> switchIntervalDist(MIN_SWITCH_INTERVAL, MAX_SWITCH_INTERVAL);
     
     for (int i = 0; i < 8000; ++i) {
         auto entity = world->createObject<GameEntity>("StaticRect_" + std::to_string(i));
@@ -144,17 +142,12 @@ int main() {
         staticCount++;
         
         // Select SWITCHABLE_PERCENTAGE (10%) of static rectangles to be switchable
-        // switchSelectDist generates 0-99, so values < 10 = 10% probability
+        // Using ECS pattern: add MobilitySwitcherComponent to selected entities
         if (switchSelectDist(rng) < SWITCHABLE_PERCENTAGE) {
-            SwitchableRect sr;
-            sr.entityIndex = entities.size() - 1;
-            sr.nextSwitchTime = switchIntervalDist(rng);
-            sr.isCurrentlyMoving = false;
-            sr.movementEndTime = 0.0f;
-            // Initial values will be regenerated when switching to movable
-            sr.rotationSpeed = 0.0f;
-            sr.movementVelocity = glm::vec3(0.0f, 0.0f, 0.0f);
-            switchableRects.push_back(sr);
+            auto switcher = entity->addComponent<MobilitySwitcherComponent>();
+            switcher->configure(MIN_SWITCH_INTERVAL, MAX_SWITCH_INTERVAL, MOVEMENT_DURATION_SECONDS);
+            switcher->setNextSwitchTime(switchIntervalDist(rng));  // Random initial delay
+            switchableCount++;
         }
     }
 
@@ -216,7 +209,7 @@ int main() {
     std::cout << "\n=== Summary ===" << std::endl;
     std::cout << "Total rectangles: " << entities.size() << std::endl;
     std::cout << "  - Static background: " << staticCount << " (never updated)" << std::endl;
-    std::cout << "  - Switchable rectangles: " << switchableRects.size() << " (can switch Static<->Movable)" << std::endl;
+    std::cout << "  - Switchable rectangles: " << switchableCount << " (ECS-managed Static<->Movable)" << std::endl;
     std::cout << "  - Animated floating: " << movableCount << " (updated every frame)" << std::endl;
     std::cout << "  - Hierarchy entities: " << hierarchyCount << " (" << hierarchyCount/2 << " parent-child pairs)" << std::endl;
     std::cout << "  - Unique materials: " << sharedMaterials.size() << " (automatic deduplication)" << std::endl;
@@ -227,6 +220,7 @@ int main() {
     std::cout << "  ✓ Dual SSBO/VBO architecture (separate static/dynamic buffers)" << std::endl;
     std::cout << "  ✓ ARB_vertex_attrib_binding (minimal state changes)" << std::endl;
     std::cout << "  ✓ Hierarchical transform flattening (parent-child optimized)" << std::endl;
+    std::cout << "  ✓ ECS-based mobility switching (MobilitySwitcherSystem)" << std::endl;
     std::cout << "\nEntering render loop. Press ESC to exit." << std::endl;
 
     // FPS tracking
@@ -243,51 +237,10 @@ int main() {
         // Input
         processInput(window);
 
-        // Update world (which updates all modules)
+        // Update world (which updates all modules including MobilitySwitcherSystem)
         world->update(deltaTime);
 
-        // Handle switchable rectangles (Static <-> Movable transitions)
-        for (auto& sr : switchableRects) {
-            auto& entity = entities[sr.entityIndex];
-            auto transform = entity->getComponent<TransformComponent>();
-            if (!transform) continue;
-            
-            if (sr.isCurrentlyMoving) {
-                // Currently in movable state, check if movement duration is over
-                if (time >= sr.movementEndTime) {
-                    // Switch back to Static
-                    transform->setMobility(TransformMobility::Static);
-                    sr.isCurrentlyMoving = false;
-                    sr.nextSwitchTime = time + switchIntervalDist(rng);  // Schedule next switch
-                    rotationSpeeds[sr.entityIndex] = 0.0f;  // Stop rotation
-                } else {
-                    // Continue moving - apply movement velocity
-                    glm::vec3 currentPos = transform->getLocalPosition();
-                    glm::vec3 newPos = currentPos + sr.movementVelocity * deltaTime;
-                    
-                    // Keep within bounds
-                    newPos.x = glm::clamp(newPos.x, -SCREEN_BOUNDARY, SCREEN_BOUNDARY);
-                    newPos.y = glm::clamp(newPos.y, -SCREEN_BOUNDARY, SCREEN_BOUNDARY);
-                    
-                    transform->setLocalPosition(newPos);
-                }
-            } else {
-                // Currently in static state, check if it's time to switch
-                if (time >= sr.nextSwitchTime) {
-                    // Switch to Movable
-                    transform->setMobility(TransformMobility::Movable);
-                    sr.isCurrentlyMoving = true;
-                    sr.movementEndTime = time + MOVEMENT_DURATION_SECONDS;  // Move for defined duration
-                    
-                    // Generate new random movement parameters for variety
-                    sr.rotationSpeed = moveRotSpeedDist(rng);
-                    sr.movementVelocity = glm::vec3(moveVelDist(rng), moveVelDist(rng), 0.0f);
-                    rotationSpeeds[sr.entityIndex] = sr.rotationSpeed;  // Enable rotation
-                }
-            }
-        }
-
-        // Animate movable rectangles
+        // Animate movable rectangles (those without MobilitySwitcherComponent)
         for (size_t i = 0; i < entities.size(); ++i) {
             if (rotationSpeeds[i] != 0.0f) {
                 auto transform = entities[i]->getComponent<TransformComponent>();
