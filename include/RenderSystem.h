@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Module.h"
+#include "VBO.h"
 #include "SSBOBuffer.h"
 #include "InstanceVBO.h"
 #include <GL/glew.h>
@@ -46,7 +47,7 @@ private:
     // OpenGL resources
     unsigned int shaderProgram = 0;
     unsigned int VAO = 0;
-    unsigned int VBO = 0;  // Vertex positions (shared)
+    std::unique_ptr<VBO<float>> vertexVBO;  // Vertex positions (shared)
     
     // Static data resources (GL_STATIC_DRAW - rarely updated)
     std::unique_ptr<InstanceVBO<unsigned int>> staticMaterialIDVBO;    // Static material IDs

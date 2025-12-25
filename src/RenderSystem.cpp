@@ -70,12 +70,9 @@ void RenderSystem::shutdown() {
             glDeleteVertexArrays(1, &VAO);
             VAO = 0;
         }
-        if (VBO != 0) {
-            glDeleteBuffers(1, &VBO);
-            VBO = 0;
-        }
         
         // Clean up using smart pointers (automatic)
+        vertexVBO.reset();
         staticMaterialIDVBO.reset();
         staticMatrixIDVBO.reset();
         staticMaterialSSBO.reset();
@@ -98,13 +95,13 @@ void RenderSystem::shutdown() {
 void RenderSystem::initializeGL() {
     if (glInitialized) return;
 
-    std::cout << "[RenderSystem] Initializing dual SSBO/VBO architecture with SSBOBuffer helper classes..." << std::endl;
+    std::cout << "[RenderSystem] Initializing dual SSBO/VBO architecture with VBO-based vertex management..." << std::endl;
 
     // Create shader program
     shaderProgram = createShaderProgram();
 
     // Rectangle vertices from -0.5,-0.5 to +0.5,+0.5 (two triangles)
-    float vertices[] = {
+    std::vector<float> vertices = {
         // First triangle
          0.5f,  0.5f, 0.0f,  // top right
          0.5f, -0.5f, 0.0f,  // bottom right
@@ -116,13 +113,15 @@ void RenderSystem::initializeGL() {
     };
 
     glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    
     glBindVertexArray(VAO);
 
-    // Setup vertex buffer (position data) - shared between static and dynamic
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    // Setup vertex buffer (position data) using VBO class - shared between static and dynamic
+    vertexVBO = std::make_unique<VBO<float>>(GL_STATIC_DRAW);
+    vertexVBO->initialize(vertices.size());
+    vertexVBO->uploadData(vertices);
+    
+    // Bind and setup vertex attribute (traditional API needed for VAO)
+    vertexVBO->bind(GL_ARRAY_BUFFER);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
@@ -158,7 +157,7 @@ void RenderSystem::initializeGL() {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 
     glInitialized = true;
-    std::cout << "[RenderSystem] Dual SSBO/VBO architecture with SSBOBuffer helper classes initialization complete." << std::endl;
+    std::cout << "[RenderSystem] VBO-based dual SSBO/VBO architecture initialization complete." << std::endl;
 }
 
 void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
