@@ -93,6 +93,17 @@ int main() {
     std::vector<std::shared_ptr<GameEntity>> entities;
     std::vector<float> rotationSpeeds;  // Store rotation speeds for animated objects
     
+    // Structure to track rectangles that can switch mobility
+    struct SwitchableRect {
+        size_t entityIndex;          // Index in entities vector
+        float nextSwitchTime;        // Time when next switch should occur
+        bool isCurrentlyMoving;      // Whether it's currently in movable state
+        float movementEndTime;       // Time when movement should end (back to static)
+        float rotationSpeed;         // Speed when moving
+        glm::vec3 movementVelocity;  // Velocity when moving
+    };
+    std::vector<SwitchableRect> switchableRects;
+    
     // Create shared materials for better performance (material deduplication)
     std::vector<MaterialPtr> sharedMaterials;
     for (int i = 0; i < 20; ++i) {
@@ -106,6 +117,13 @@ int main() {
     // === Part 1: Background grid of static small rectangles (8000 rectangles) ===
     std::cout << "Creating 8000 static background rectangles..." << std::endl;
     int staticCount = 0;
+    
+    // Random number generators for switchable rectangles
+    std::uniform_int_distribution<int> switchSelectDist(0, 99);  // 10% chance to be switchable
+    std::uniform_real_distribution<float> switchIntervalDist(2.0f, 5.0f);  // Switch every 2-5 seconds
+    std::uniform_real_distribution<float> moveRotSpeedDist(-2.0f, 2.0f);  // Rotation speed when moving
+    std::uniform_real_distribution<float> moveVelDist(-0.1f, 0.1f);  // Movement velocity when moving
+    
     for (int i = 0; i < 8000; ++i) {
         auto entity = world->createObject<GameEntity>("StaticRect_" + std::to_string(i));
         auto transform = entity->addComponent<TransformComponent>();
@@ -121,6 +139,18 @@ int main() {
         entities.push_back(entity);
         rotationSpeeds.push_back(0.0f);  // No rotation
         staticCount++;
+        
+        // 10% of static rectangles can switch mobility
+        if (switchSelectDist(rng) < 10) {
+            SwitchableRect sr;
+            sr.entityIndex = entities.size() - 1;
+            sr.nextSwitchTime = switchIntervalDist(rng);
+            sr.isCurrentlyMoving = false;
+            sr.movementEndTime = 0.0f;
+            sr.rotationSpeed = moveRotSpeedDist(rng);
+            sr.movementVelocity = glm::vec3(moveVelDist(rng), moveVelDist(rng), 0.0f);
+            switchableRects.push_back(sr);
+        }
     }
 
     // === Part 2: Animated floating rectangles (1500 rectangles) ===
@@ -181,6 +211,7 @@ int main() {
     std::cout << "\n=== Summary ===" << std::endl;
     std::cout << "Total rectangles: " << entities.size() << std::endl;
     std::cout << "  - Static background: " << staticCount << " (never updated)" << std::endl;
+    std::cout << "  - Switchable rectangles: " << switchableRects.size() << " (can switch Static<->Movable)" << std::endl;
     std::cout << "  - Animated floating: " << movableCount << " (updated every frame)" << std::endl;
     std::cout << "  - Hierarchy entities: " << hierarchyCount << " (" << hierarchyCount/2 << " parent-child pairs)" << std::endl;
     std::cout << "  - Unique materials: " << sharedMaterials.size() << " (automatic deduplication)" << std::endl;
@@ -209,6 +240,49 @@ int main() {
 
         // Update world (which updates all modules)
         world->update(deltaTime);
+
+        // Handle switchable rectangles (Static <-> Movable transitions)
+        for (auto& sr : switchableRects) {
+            auto& entity = entities[sr.entityIndex];
+            auto transform = entity->getComponent<TransformComponent>();
+            if (!transform) continue;
+            
+            if (sr.isCurrentlyMoving) {
+                // Currently in movable state, check if movement duration is over
+                if (time >= sr.movementEndTime) {
+                    // Switch back to Static
+                    transform->setMobility(TransformMobility::Static);
+                    sr.isCurrentlyMoving = false;
+                    sr.nextSwitchTime = time + switchIntervalDist(rng);  // Schedule next switch
+                    rotationSpeeds[sr.entityIndex] = 0.0f;  // Stop rotation
+                } else {
+                    // Continue moving - rotate and translate
+                    transform->setLocalRotation(glm::angleAxis(
+                        time * sr.rotationSpeed, 
+                        glm::vec3(0.0f, 0.0f, 1.0f)
+                    ));
+                    
+                    // Apply movement velocity
+                    glm::vec3 currentPos = transform->getLocalPosition();
+                    glm::vec3 newPos = currentPos + sr.movementVelocity * deltaTime;
+                    
+                    // Keep within bounds
+                    newPos.x = glm::clamp(newPos.x, -0.95f, 0.95f);
+                    newPos.y = glm::clamp(newPos.y, -0.95f, 0.95f);
+                    
+                    transform->setLocalPosition(newPos);
+                }
+            } else {
+                // Currently in static state, check if it's time to switch
+                if (time >= sr.nextSwitchTime) {
+                    // Switch to Movable
+                    transform->setMobility(TransformMobility::Movable);
+                    sr.isCurrentlyMoving = true;
+                    sr.movementEndTime = time + 1.0f;  // Move for 1 second
+                    rotationSpeeds[sr.entityIndex] = sr.rotationSpeed;  // Enable rotation
+                }
+            }
+        }
 
         // Animate movable rectangles
         for (size_t i = 0; i < entities.size(); ++i) {
