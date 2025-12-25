@@ -3,40 +3,39 @@
 #include <GL/glew.h>
 #include <vector>
 
-/// Encapsulated SSBO (Shader Storage Buffer Object) class using DSA (Direct State Access) API
-/// Simplifies buffer management with automatic resizing and usage hint support
-/// Uses modern OpenGL 4.5+ DSA functions for stateless, efficient buffer operations
+/// Encapsulated Instance VBO (Vertex Buffer Object) class using DSA (Direct State Access) API
+/// Simplifies instance buffer management with automatic resizing and usage hint support
 template<typename T>
-class SSBOBuffer {
+class InstanceVBO {
 public:
     /// Constructor
-    /// @param binding - SSBO binding point (0-N)
+    /// @param location - Vertex attribute location
     /// @param usageHint - GL_STATIC_DRAW or GL_DYNAMIC_DRAW
-    SSBOBuffer(GLuint binding, GLenum usageHint = GL_DYNAMIC_DRAW)
-        : bindingPoint(binding), usage(usageHint) {
+    InstanceVBO(GLuint location, GLenum usageHint = GL_DYNAMIC_DRAW)
+        : attributeLocation(location), usage(usageHint) {
     }
 
-    ~SSBOBuffer() {
+    ~InstanceVBO() {
         cleanup();
     }
 
     // Prevent copying
-    SSBOBuffer(const SSBOBuffer&) = delete;
-    SSBOBuffer& operator=(const SSBOBuffer&) = delete;
+    InstanceVBO(const InstanceVBO&) = delete;
+    InstanceVBO& operator=(const InstanceVBO&) = delete;
 
     // Allow moving
-    SSBOBuffer(SSBOBuffer&& other) noexcept
-        : bufferID(other.bufferID), bindingPoint(other.bindingPoint),
+    InstanceVBO(InstanceVBO&& other) noexcept
+        : bufferID(other.bufferID), attributeLocation(other.attributeLocation),
           usage(other.usage), capacity(other.capacity) {
         other.bufferID = 0;
         other.capacity = 0;
     }
 
-    SSBOBuffer& operator=(SSBOBuffer&& other) noexcept {
+    InstanceVBO& operator=(InstanceVBO&& other) noexcept {
         if (this != &other) {
             cleanup();
             bufferID = other.bufferID;
-            bindingPoint = other.bindingPoint;
+            attributeLocation = other.attributeLocation;
             usage = other.usage;
             capacity = other.capacity;
             other.bufferID = 0;
@@ -45,7 +44,7 @@ public:
         return *this;
     }
 
-    /// Initialize the SSBO with an initial capacity (DSA)
+    /// Initialize the VBO with an initial capacity (DSA)
     void initialize(size_t initialCapacity = 100) {
         if (bufferID != 0) {
             return;  // Already initialized
@@ -60,7 +59,7 @@ public:
         glNamedBufferData(bufferID, capacity * sizeof(T), nullptr, usage);
     }
 
-    /// Upload data to the SSBO (DSA)
+    /// Upload data to the VBO (DSA)
     /// Automatically resizes if needed
     void uploadData(const std::vector<T>& data) {
         if (bufferID == 0) {
@@ -82,24 +81,34 @@ public:
         }
     }
 
-    /// Bind the SSBO to its binding point
-    /// Note: glBindBufferBase still needed for shader binding (not part of DSA)
-    void bind() const {
-        if (bufferID != 0) {
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, bufferID);
+    /// Setup vertex attribute pointer for instanced rendering
+    /// Call this after binding VAO (still requires traditional API as it's VAO-dependent)
+    void setupAttribute(GLint componentsPerAttribute = 1, bool isInteger = true) {
+        if (bufferID == 0) {
+            return;
         }
-    }
 
-    /// Unbind the SSBO
-    void unbind() const {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, 0);
+        // Note: VAO-related calls still use traditional API
+        glBindBuffer(GL_ARRAY_BUFFER, bufferID);
+        
+        if (isInteger) {
+            // For integer types (e.g., uint)
+            glVertexAttribIPointer(attributeLocation, componentsPerAttribute, GL_UNSIGNED_INT, 0, nullptr);
+        } else {
+            // For float types
+            glVertexAttribPointer(attributeLocation, componentsPerAttribute, GL_FLOAT, GL_FALSE, 0, nullptr);
+        }
+        
+        glEnableVertexAttribArray(attributeLocation);
+        glVertexAttribDivisor(attributeLocation, 1);  // Per-instance data
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
     /// Get buffer ID
     GLuint getID() const { return bufferID; }
 
-    /// Get binding point
-    GLuint getBindingPoint() const { return bindingPoint; }
+    /// Get attribute location
+    GLuint getLocation() const { return attributeLocation; }
 
     /// Get capacity
     size_t getCapacity() const { return capacity; }
@@ -115,7 +124,7 @@ public:
 
 private:
     GLuint bufferID = 0;
-    GLuint bindingPoint = 0;
+    GLuint attributeLocation = 0;
     GLenum usage = GL_DYNAMIC_DRAW;
     size_t capacity = 0;
 };

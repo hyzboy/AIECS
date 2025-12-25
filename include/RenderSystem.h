@@ -2,6 +2,7 @@
 
 #include "Module.h"
 #include "SSBOBuffer.h"
+#include "InstanceVBO.h"
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <vector>
