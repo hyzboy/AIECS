@@ -26,7 +26,11 @@ glm::vec3 TransformComponent::getLocalPosition() const {
 void TransformComponent::setLocalPosition(const glm::vec3& pos) {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     getSharedStorage()->setPosition(storageHandle, pos);
-    matrixDirty = true;
+    
+    // Static objects should not be modified after initialization
+    if (mobility != TransformMobility::Static) {
+        matrixDirty = true;
+    }
 }
 
 glm::quat TransformComponent::getLocalRotation() const {
@@ -37,7 +41,10 @@ glm::quat TransformComponent::getLocalRotation() const {
 void TransformComponent::setLocalRotation(const glm::quat& rot) {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     getSharedStorage()->setRotation(storageHandle, glm::normalize(rot));
-    matrixDirty = true;
+    
+    if (mobility != TransformMobility::Static) {
+        matrixDirty = true;
+    }
 }
 
 glm::vec3 TransformComponent::getLocalScale() const {
@@ -48,7 +55,10 @@ glm::vec3 TransformComponent::getLocalScale() const {
 void TransformComponent::setLocalScale(const glm::vec3& scale) {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     getSharedStorage()->setScale(storageHandle, scale);
-    matrixDirty = true;
+    
+    if (mobility != TransformMobility::Static) {
+        matrixDirty = true;
+    }
 }
 
 void TransformComponent::setLocalTRS(const glm::vec3& pos, const glm::quat& rot, const glm::vec3& scale) {
@@ -57,7 +67,10 @@ void TransformComponent::setLocalTRS(const glm::vec3& pos, const glm::quat& rot,
     storage->setPosition(storageHandle, pos);
     storage->setRotation(storageHandle, glm::normalize(rot));
     storage->setScale(storageHandle, scale);
-    matrixDirty = true;
+    
+    if (mobility != TransformMobility::Static) {
+        matrixDirty = true;
+    }
 }
 
 glm::mat4 TransformComponent::getLocalMatrix() const {
@@ -69,9 +82,22 @@ glm::mat4 TransformComponent::getLocalMatrix() const {
 
 glm::mat4 TransformComponent::getWorldMatrix() const {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return glm::mat4(1.0f);
+    
+    // For Static objects, use cached matrix (never update)
+    if (mobility == TransformMobility::Static && !matrixDirty) {
+        return cachedWorldMatrix;
+    }
+    
+    // For Stationary objects, only update when dirty
+    if (mobility == TransformMobility::Stationary && !matrixDirty) {
+        return cachedWorldMatrix;
+    }
+    
+    // For Movable objects or when dirty, always recalculate
     if (matrixDirty) {
         const_cast<TransformComponent*>(this)->updateWorldMatrix();
     }
+    
     return getSharedStorage()->getWorldMatrix(storageHandle);
 }
 
@@ -165,6 +191,19 @@ void TransformComponent::removeChild(std::shared_ptr<GameEntity> child) {
     }
 }
 
+void TransformComponent::setMobility(TransformMobility newMobility) {
+    mobility = newMobility;
+    
+    // When setting to Static or Stationary, cache the current world matrix
+    if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
+        if (matrixDirty) {
+            updateWorldMatrix();
+        }
+        cachedWorldMatrix = getSharedStorage()->getWorldMatrix(storageHandle);
+        matrixDirty = false;  // Static objects never become dirty
+    }
+}
+
 void TransformComponent::updateWorldMatrix() {
     if (storageHandle == TransformDataStorage::INVALID_HANDLE) return;
     
@@ -196,6 +235,11 @@ void TransformComponent::updateWorldMatrix() {
     }
     
     matrixDirty = false;
+    
+    // Cache the world matrix for Static/Stationary objects
+    if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
+        cachedWorldMatrix = storage->getWorldMatrix(storageHandle);
+    }
 }
 
 void TransformComponent::onUpdate(float deltaTime) {

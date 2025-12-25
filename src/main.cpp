@@ -89,13 +89,14 @@ int main() {
         
         transform->setLocalPosition(glm::vec3(0.0f, 0.0f, 0.0f));
         transform->setLocalScale(glm::vec3(1.5f, 1.5f, 1.0f)); // Large parent
+        transform->setMobility(TransformMobility::Movable);  // Parent is movable (animated)
         render->setColor(glm::vec4(0.2f, 0.4f, 0.6f, 1.0f)); // Dark blue
         
         entities.push_back(entity);
         parentRect = entity;
     }
 
-    // Child Rectangle 1: Small red rectangle (top-left of parent)
+    // Child Rectangle 1: Small red rectangle (top-left of parent) - Static
     {
         auto entity = world->createObject<GameEntity>("ChildRect1");
         auto transform = entity->addComponent<TransformComponent>();
@@ -104,12 +105,13 @@ int main() {
         transform->setParent(parentRect);
         transform->setLocalPosition(glm::vec3(-0.3f, 0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
+        transform->setMobility(TransformMobility::Static);  // Never moves relative to parent
         render->setColor(glm::vec4(0.9f, 0.2f, 0.2f, 1.0f)); // Red
         
         entities.push_back(entity);
     }
 
-    // Child Rectangle 2: Small green rectangle (top-right of parent)
+    // Child Rectangle 2: Small green rectangle (top-right of parent) - Static
     {
         auto entity = world->createObject<GameEntity>("ChildRect2");
         auto transform = entity->addComponent<TransformComponent>();
@@ -118,12 +120,13 @@ int main() {
         transform->setParent(parentRect);
         transform->setLocalPosition(glm::vec3(0.3f, 0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
+        transform->setMobility(TransformMobility::Static);  // Never moves relative to parent
         render->setColor(glm::vec4(0.2f, 0.9f, 0.2f, 1.0f)); // Green
         
         entities.push_back(entity);
     }
 
-    // Child Rectangle 3: Small yellow rectangle (bottom-left of parent)
+    // Child Rectangle 3: Small yellow rectangle (bottom-left of parent) - Stationary
     {
         auto entity = world->createObject<GameEntity>("ChildRect3");
         auto transform = entity->addComponent<TransformComponent>();
@@ -132,12 +135,13 @@ int main() {
         transform->setParent(parentRect);
         transform->setLocalPosition(glm::vec3(-0.3f, -0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
+        transform->setMobility(TransformMobility::Stationary);  // Rarely moves
         render->setColor(glm::vec4(0.9f, 0.9f, 0.2f, 1.0f)); // Yellow
         
         entities.push_back(entity);
     }
 
-    // Child Rectangle 4: Small magenta rectangle (bottom-right of parent)
+    // Child Rectangle 4: Small magenta rectangle (bottom-right of parent) - Stationary
     {
         auto entity = world->createObject<GameEntity>("ChildRect4");
         auto transform = entity->addComponent<TransformComponent>();
@@ -146,12 +150,13 @@ int main() {
         transform->setParent(parentRect);
         transform->setLocalPosition(glm::vec3(0.3f, -0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
+        transform->setMobility(TransformMobility::Stationary);  // Rarely moves
         render->setColor(glm::vec4(0.9f, 0.2f, 0.9f, 1.0f)); // Magenta
         
         entities.push_back(entity);
     }
 
-    // Child Rectangle 5: Tiny white rectangle at center of parent
+    // Child Rectangle 5: Tiny white rectangle at center of parent - Movable
     {
         auto entity = world->createObject<GameEntity>("ChildRect5");
         auto transform = entity->addComponent<TransformComponent>();
@@ -160,16 +165,24 @@ int main() {
         transform->setParent(parentRect);
         transform->setLocalPosition(glm::vec3(0.0f, 0.0f, 0.0f));
         transform->setLocalScale(glm::vec3(0.2f, 0.2f, 1.0f));
+        transform->setMobility(TransformMobility::Movable);  // Movable (will animate)
         render->setColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)); // White
         
         entities.push_back(entity);
     }
 
     std::cout << "Created " << entities.size() << " rectangles in hierarchical structure." << std::endl;
-    std::cout << "  1 parent (large blue) + 5 children (red, green, yellow, magenta, white)" << std::endl;
+    std::cout << "  1 parent (Movable, animated)" << std::endl;
+    std::cout << "  2 Static children (red, green) - matrix cached" << std::endl;
+    std::cout << "  2 Stationary children (yellow, magenta) - updated only when dirty" << std::endl;
+    std::cout << "  1 Movable child (white, rotating)" << std::endl;
     std::cout << "\n[Architecture] Using modular system:" << std::endl;
-    std::cout << "  - RenderSystem: Handles all OpenGL rendering" << std::endl;
+    std::cout << "  - RenderSystem: Handles all OpenGL rendering with instancing" << std::endl;
     std::cout << "  - RenderCollector: Collects component data and batches rendering" << std::endl;
+    std::cout << "\n[Optimization] Transform mobility:" << std::endl;
+    std::cout << "  - Static: Matrix cached, never recalculated" << std::endl;
+    std::cout << "  - Stationary: Matrix cached, updated only when marked dirty" << std::endl;
+    std::cout << "  - Movable: Matrix recalculated every frame" << std::endl;
     std::cout << "\nEntering render loop. Press ESC to exit." << std::endl;
 
     // Render loop
@@ -185,6 +198,7 @@ int main() {
         world->update(deltaTime);
 
         // Animate the parent rectangle (rotation and slight scaling)
+        // Parent is Movable, so it will be updated every frame
         auto parentTransform = parentRect->getComponent<TransformComponent>();
         if (parentTransform) {
             // Rotate parent slowly
@@ -193,6 +207,14 @@ int main() {
             // Pulse scale slightly (1.3 to 1.7)
             float scale = 1.5f + 0.2f * sin(time * 2.0f);
             parentTransform->setLocalScale(glm::vec3(scale, scale, 1.0f));
+        }
+
+        // Animate the white child (Movable) - local rotation
+        if (entities.size() > 5) {
+            auto whiteTransform = entities[5]->getComponent<TransformComponent>();
+            if (whiteTransform) {
+                whiteTransform->setLocalRotation(glm::angleAxis(time * -2.0f, glm::vec3(0.0f, 0.0f, 1.0f)));
+            }
         }
 
         // Clear screen

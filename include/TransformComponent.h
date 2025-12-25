@@ -7,6 +7,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <memory>
 
+/// Mobility type for transform optimization (similar to Unreal Engine)
+enum class TransformMobility {
+    Static,      // Never moves, transform matrix cached permanently
+    Stationary,  // Rarely moves, transform updated only when explicitly changed
+    Movable      // Frequently moves, transform updated every frame
+};
+
 /// Transform component for Frostbite architecture
 /// Uses SOA (Structure of Arrays) storage for better cache performance
 /// while maintaining OOP component interface
@@ -48,6 +55,16 @@ public:
     void removeChild(std::shared_ptr<GameEntity> child);
     const std::vector<std::shared_ptr<GameEntity>>& getChildren() const { return childEntities; }
 
+    // Mobility settings for optimization
+    void setMobility(TransformMobility mobility);
+    TransformMobility getMobility() const { return mobility; }
+    bool isStatic() const { return mobility == TransformMobility::Static; }
+    bool isStationary() const { return mobility == TransformMobility::Stationary; }
+    bool isMovable() const { return mobility == TransformMobility::Movable; }
+
+    // Mark transform as dirty (for Stationary objects)
+    void markDirty() { matrixDirty = true; }
+
     void onUpdate(float deltaTime) override;
     void onAttach() override;
     void onDetach() override;
@@ -68,4 +85,6 @@ private:
     std::weak_ptr<GameEntity> parentEntity;
     std::vector<std::shared_ptr<GameEntity>> childEntities;
     bool matrixDirty = true;
+    TransformMobility mobility = TransformMobility::Movable;  // Default to movable
+    glm::mat4 cachedWorldMatrix;  // Cached for Static/Stationary objects
 };
