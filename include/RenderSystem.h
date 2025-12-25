@@ -39,6 +39,10 @@ public:
 
     /// Get shader program ID
     unsigned int getShaderProgram() const { return shaderProgram; }
+    
+    /// Mark static data as dirty, forcing re-upload on next render
+    /// Call this when static/stationary objects change (added, removed, or marked dirty)
+    void markStaticDataDirty() { staticDataUploaded = false; }
 
 private:
     unsigned int compileShader(GLenum type, const char* source);
@@ -62,6 +66,7 @@ private:
     std::unique_ptr<SSBOBuffer<glm::mat4>> dynamicMatrixSSBO;          // Dynamic matrices SSBO
     
     bool glInitialized = false;
+    bool staticDataUploaded = false;  // Track if static data has been uploaded (GL_STATIC_DRAW optimization)
 
     // Projection matrix for 2D rendering
     glm::mat4 projectionMatrix;

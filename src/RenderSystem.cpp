@@ -181,24 +181,32 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
     
     // === RENDER STATIC OBJECTS ===
     if (staticCount > 0 && !staticMaterials.empty()) {
-        // Upload static data using helper classes (automatic resizing)
-        staticMaterialSSBO->uploadData(staticMaterials);
-        staticMatrixSSBO->uploadData(staticMatrices);
-        staticMaterialIDVBO->uploadData(staticMaterialIDs);
-        
-        // Build static matrix IDs (1:1 mapping)
-        std::vector<unsigned int> staticMatrixIDs_data;
-        staticMatrixIDs_data.reserve(staticCount);
-        for (size_t i = 0; i < staticCount; ++i) {
-            staticMatrixIDs_data.push_back(static_cast<unsigned int>(i));
+        // Upload static data ONLY ONCE (GL_STATIC_DRAW optimization)
+        if (!staticDataUploaded) {
+            // Upload static data using helper classes (automatic resizing)
+            staticMaterialSSBO->uploadData(staticMaterials);
+            staticMatrixSSBO->uploadData(staticMatrices);
+            staticMaterialIDVBO->uploadData(staticMaterialIDs);
+            
+            // Build static matrix IDs (1:1 mapping)
+            std::vector<unsigned int> staticMatrixIDs_data;
+            staticMatrixIDs_data.reserve(staticCount);
+            for (size_t i = 0; i < staticCount; ++i) {
+                staticMatrixIDs_data.push_back(static_cast<unsigned int>(i));
+            }
+            staticMatrixIDVBO->uploadData(staticMatrixIDs_data);
+            
+            staticDataUploaded = true;
+            std::cout << "[RenderSystem] Static data uploaded once (GL_STATIC_DRAW): " 
+                      << staticCount << " instances, " 
+                      << staticMaterials.size() << " materials" << std::endl;
         }
-        staticMatrixIDVBO->uploadData(staticMatrixIDs_data);
         
-        // Bind SSBOs
+        // Bind SSBOs (binding is needed every frame even if data doesn't change)
         staticMaterialSSBO->bind();
         staticMatrixSSBO->bind();
         
-        // Setup vertex attributes
+        // Setup vertex attributes (needed every frame)
         staticMaterialIDVBO->setupAttribute(1, true);  // 1 component, integer
         staticMatrixIDVBO->setupAttribute(1, true);    // 1 component, integer
         
