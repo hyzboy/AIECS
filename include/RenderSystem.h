@@ -19,13 +19,19 @@ public:
     /// Initialize OpenGL resources (shaders, VAO/VBO, SSBOs)
     void initializeGL();
 
-    /// Render a batch of rectangles using SSBO-based instanced rendering with material deduplication
-    /// @param modelMatrices - World transform matrices for each rectangle
-    /// @param materials - Deduplicated array of materials (colors)
-    /// @param materialIDs - Material ID for each instance (indices into materials array)
-    void renderBatch(const std::vector<glm::mat4>& modelMatrices, 
-                     const std::vector<glm::vec4>& materials,
-                     const std::vector<unsigned int>& materialIDs);
+    /// Render a batch of rectangles using dual SSBO/VBO architecture for static and dynamic data
+    /// @param staticMatrices - Static/Stationary transform matrices
+    /// @param staticMaterials - Static materials (colors)
+    /// @param staticMaterialIDs - Material IDs for static instances
+    /// @param dynamicMatrices - Movable transform matrices
+    /// @param dynamicMaterials - Dynamic materials (colors)
+    /// @param dynamicMaterialIDs - Material IDs for dynamic instances
+    void renderBatch(const std::vector<glm::mat4>& staticMatrices,
+                     const std::vector<glm::vec4>& staticMaterials,
+                     const std::vector<unsigned int>& staticMaterialIDs,
+                     const std::vector<glm::mat4>& dynamicMatrices,
+                     const std::vector<glm::vec4>& dynamicMaterials,
+                     const std::vector<unsigned int>& dynamicMaterialIDs);
 
     /// Get shader program ID
     unsigned int getShaderProgram() const { return shaderProgram; }
@@ -37,19 +43,26 @@ private:
     // OpenGL resources
     unsigned int shaderProgram = 0;
     unsigned int VAO = 0;
-    unsigned int VBO = 0;
-    unsigned int materialIDVBO = 0;    // VBO for material IDs
-    unsigned int matrixIDVBO = 0;      // VBO for matrix IDs
+    unsigned int VBO = 0;  // Vertex positions (shared)
     
-    // SSBO resources
-    unsigned int materialSSBO = 0;     // SSBO for materials (colors)
-    unsigned int matrixSSBO = 0;       // SSBO for matrices
+    // Static data resources (GL_STATIC_DRAW - rarely updated)
+    unsigned int staticMaterialIDVBO = 0;    // Static material IDs
+    unsigned int staticMatrixIDVBO = 0;      // Static matrix IDs
+    unsigned int staticMaterialSSBO = 0;     // Static materials SSBO
+    unsigned int staticMatrixSSBO = 0;       // Static matrices SSBO
+    
+    // Dynamic data resources (GL_DYNAMIC_DRAW - updated every frame)
+    unsigned int dynamicMaterialIDVBO = 0;   // Dynamic material IDs
+    unsigned int dynamicMatrixIDVBO = 0;     // Dynamic matrix IDs
+    unsigned int dynamicMaterialSSBO = 0;    // Dynamic materials SSBO
+    unsigned int dynamicMatrixSSBO = 0;      // Dynamic matrices SSBO
     
     bool glInitialized = false;
 
     // Projection matrix for 2D rendering
     glm::mat4 projectionMatrix;
     
-    // SSBO capacity
-    size_t ssboCapacity = 100;
+    // Buffer capacities
+    size_t staticCapacity = 100;
+    size_t dynamicCapacity = 100;
 };

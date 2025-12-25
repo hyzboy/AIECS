@@ -124,46 +124,37 @@ void RenderCollector::collectAndRender() {
     }
 
     // Extract colors from deduplicated materials for rendering
-    // Combine static and dynamic materials
-    std::vector<glm::vec4> allMaterialColors;
-    allMaterialColors.reserve(uniqueStaticMaterials.size() + uniqueDynamicMaterials.size());
-    
+    // Static materials
+    std::vector<glm::vec4> staticMaterialColors;
+    staticMaterialColors.reserve(uniqueStaticMaterials.size());
     for (const auto& mat : uniqueStaticMaterials) {
-        allMaterialColors.push_back(mat->getColor());
+        staticMaterialColors.push_back(mat->getColor());
     }
+    
+    // Dynamic materials
+    std::vector<glm::vec4> dynamicMaterialColors;
+    dynamicMaterialColors.reserve(uniqueDynamicMaterials.size());
     for (const auto& mat : uniqueDynamicMaterials) {
-        allMaterialColors.push_back(mat->getColor());
+        dynamicMaterialColors.push_back(mat->getColor());
     }
 
-    // Combine static and movable data for rendering
-    std::vector<glm::mat4> allMatrices;
-    std::vector<unsigned int> allMaterialIDs;
-    
-    allMatrices.reserve(staticModelMatrices.size() + movableModelMatrices.size());
-    allMaterialIDs.reserve(staticMaterialIDs.size() + movableMaterialIDs.size());
-    
-    // Add static objects first
-    allMatrices.insert(allMatrices.end(), staticModelMatrices.begin(), staticModelMatrices.end());
-    allMaterialIDs.insert(allMaterialIDs.end(), staticMaterialIDs.begin(), staticMaterialIDs.end());
-    
-    // Add movable objects
-    allMatrices.insert(allMatrices.end(), movableModelMatrices.begin(), movableModelMatrices.end());
-    allMaterialIDs.insert(allMaterialIDs.end(), movableMaterialIDs.begin(), movableMaterialIDs.end());
-
-    // Batch render all collected data with deduplicated materials
-    if (!allMatrices.empty()) {
-        renderSystemPtr->renderBatch(allMatrices, allMaterialColors, allMaterialIDs);
+    // Batch render with dual SSBO/VBO architecture
+    if (!staticModelMatrices.empty() || !movableModelMatrices.empty()) {
+        renderSystemPtr->renderBatch(staticModelMatrices, staticMaterialColors, staticMaterialIDs,
+                                      movableModelMatrices, dynamicMaterialColors, movableMaterialIDs);
         
         // Log separation stats
-        std::cout << "[RenderCollector] Rendered " << allMatrices.size() << " instances: "
-                  << staticModelMatrices.size() << " static/stationary, "
-                  << movableModelMatrices.size() << " movable | "
-                  << uniqueStaticMaterials.size() << " static materials, "
-                  << uniqueDynamicMaterials.size() << " dynamic materials";
-        
+        size_t totalInstances = staticModelMatrices.size() + movableModelMatrices.size();
         size_t totalUniqueMaterials = uniqueStaticMaterials.size() + uniqueDynamicMaterials.size();
-        if (totalUniqueMaterials < allMatrices.size()) {
-            std::cout << " (saved " << (allMatrices.size() - totalUniqueMaterials) 
+        
+        std::cout << "[RenderCollector] Rendered " << totalInstances << " instances: "
+                  << staticModelMatrices.size() << " static/stationary (GL_STATIC_DRAW), "
+                  << movableModelMatrices.size() << " movable (GL_DYNAMIC_DRAW) | "
+                  << uniqueStaticMaterials.size() << " static materials (GL_STATIC_DRAW), "
+                  << uniqueDynamicMaterials.size() << " dynamic materials (GL_DYNAMIC_DRAW)";
+        
+        if (totalUniqueMaterials < totalInstances) {
+            std::cout << " (saved " << (totalInstances - totalUniqueMaterials) 
                       << " material uploads)";
         }
         std::cout << std::endl;
