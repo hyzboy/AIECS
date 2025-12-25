@@ -58,6 +58,9 @@ public:
     /// Get object count
     size_t getObjectCount() const { return objects.size(); }
 
+    /// Get all objects (for systems that need to iterate)
+    const std::vector<std::shared_ptr<Object>>& getObjects() const { return objects; }
+
     /// Check if world is active
     bool isActive() const { return active; }
 

@@ -1,0 +1,39 @@
+#pragma once
+
+#include "Module.h"
+#include "RenderSystem.h"
+#include <glm/glm.hpp>
+#include <vector>
+#include <memory>
+
+class World;
+class GameEntity;
+
+/// Collector module that gathers RenderComponent data from all entities
+/// and prepares it for batch rendering
+class RenderCollector : public Module {
+public:
+    RenderCollector(const std::string& name = "RenderCollector");
+    ~RenderCollector() override = default;
+
+    void initialize() override;
+    void update(float deltaTime) override;
+    void shutdown() override;
+
+    /// Set the world to collect from
+    void setWorld(std::shared_ptr<World> world) { this->world = world; }
+
+    /// Set the render system to use for drawing
+    void setRenderSystem(std::shared_ptr<RenderSystem> renderSys) { this->renderSystem = renderSys; }
+
+    /// Collect all RenderComponent data and render
+    void collectAndRender();
+
+private:
+    std::weak_ptr<World> world;
+    std::weak_ptr<RenderSystem> renderSystem;
+
+    // Temporary buffers for batch data
+    std::vector<glm::mat4> modelMatrices;
+    std::vector<glm::vec4> colors;
+};

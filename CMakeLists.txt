@@ -26,6 +26,8 @@ set(AIECS_SOURCES
     src/TransformComponent.cpp
     src/CollisionComponent.cpp
     src/RenderComponent.cpp
+    src/RenderSystem.cpp
+    src/RenderCollector.cpp
     src/main.cpp
 )
 

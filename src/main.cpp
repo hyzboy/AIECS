@@ -5,39 +5,13 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "World.h"
 #include "GameEntity.h"
 #include "TransformComponent.h"
 #include "RenderComponent.h"
-
-// Vertex shader with model matrix for transformations
-const char* vertexShaderSource = R"(
-#version 330 core
-layout (location = 0) in vec3 aPos;
-
-uniform mat4 model;
-uniform mat4 projection;
-
-void main()
-{
-    gl_Position = projection * model * vec4(aPos, 1.0);
-}
-)";
-
-// Fragment shader with color uniform
-const char* fragmentShaderSource = R"(
-#version 330 core
-out vec4 FragColor;
-
-uniform vec4 rectColor;
-
-void main()
-{
-    FragColor = rectColor;
-}
-)";
+#include "RenderSystem.h"
+#include "RenderCollector.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -46,44 +20,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-}
-
-unsigned int compileShader(GLenum type, const char* source) {
-    unsigned int shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-    
-    int success;
-    char infoLog[512];
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-        std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    return shader;
-}
-
-unsigned int createShaderProgram() {
-    unsigned int vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
-    unsigned int fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
-    
-    unsigned int shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    
-    int success;
-    char infoLog[512];
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
-        std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-    
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    
-    return shaderProgram;
 }
 
 int main() {
@@ -101,7 +37,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create window
-    GLFWwindow* window = glfwCreateWindow(800, 600, "AIECS - 2D Rectangle Rendering", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "AIECS - Modular Rendering System", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -123,21 +59,24 @@ int main() {
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
     std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-    // Create shader program
-    unsigned int shaderProgram = createShaderProgram();
-
-    // Create orthographic projection matrix (for 2D rendering)
-    glm::mat4 projection = glm::ortho(-2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
-    
-    glUseProgram(shaderProgram);
-    GLint projLoc = glGetUniformLocation(shaderProgram, "projection");
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-    // Create world and entities
-    std::cout << "Creating world and entities..." << std::endl;
+    // Create world and modules
+    std::cout << "\nCreating world and modules..." << std::endl;
     auto world = std::make_shared<World>("MainWorld");
     world->initialize();
 
+    // Register RenderSystem module
+    auto renderSystem = world->registerModule<RenderSystem>();
+    renderSystem->initialize();
+    renderSystem->initializeGL();
+
+    // Register RenderCollector module
+    auto renderCollector = world->registerModule<RenderCollector>();
+    renderCollector->initialize();
+    renderCollector->setWorld(world);
+    renderCollector->setRenderSystem(renderSystem);
+
+    std::cout << "\nCreating hierarchical entity structure..." << std::endl;
+    
     // Create hierarchical structure: Large parent rectangle with smaller children
     std::vector<std::shared_ptr<GameEntity>> entities;
 
@@ -151,7 +90,6 @@ int main() {
         transform->setLocalPosition(glm::vec3(0.0f, 0.0f, 0.0f));
         transform->setLocalScale(glm::vec3(1.5f, 1.5f, 1.0f)); // Large parent
         render->setColor(glm::vec4(0.2f, 0.4f, 0.6f, 1.0f)); // Dark blue
-        render->initializeGL();
         
         entities.push_back(entity);
         parentRect = entity;
@@ -163,14 +101,10 @@ int main() {
         auto transform = entity->addComponent<TransformComponent>();
         auto render = entity->addComponent<RenderComponent>();
         
-        // Set parent relationship
         transform->setParent(parentRect);
-        
-        // Position relative to parent (local coordinates)
         transform->setLocalPosition(glm::vec3(-0.3f, 0.3f, 0.0f));
-        transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f)); // Small
+        transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
         render->setColor(glm::vec4(0.9f, 0.2f, 0.2f, 1.0f)); // Red
-        render->initializeGL();
         
         entities.push_back(entity);
     }
@@ -182,11 +116,9 @@ int main() {
         auto render = entity->addComponent<RenderComponent>();
         
         transform->setParent(parentRect);
-        
         transform->setLocalPosition(glm::vec3(0.3f, 0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
         render->setColor(glm::vec4(0.2f, 0.9f, 0.2f, 1.0f)); // Green
-        render->initializeGL();
         
         entities.push_back(entity);
     }
@@ -198,11 +130,9 @@ int main() {
         auto render = entity->addComponent<RenderComponent>();
         
         transform->setParent(parentRect);
-        
         transform->setLocalPosition(glm::vec3(-0.3f, -0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
         render->setColor(glm::vec4(0.9f, 0.9f, 0.2f, 1.0f)); // Yellow
-        render->initializeGL();
         
         entities.push_back(entity);
     }
@@ -214,11 +144,9 @@ int main() {
         auto render = entity->addComponent<RenderComponent>();
         
         transform->setParent(parentRect);
-        
         transform->setLocalPosition(glm::vec3(0.3f, -0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
         render->setColor(glm::vec4(0.9f, 0.2f, 0.9f, 1.0f)); // Magenta
-        render->initializeGL();
         
         entities.push_back(entity);
     }
@@ -230,34 +158,33 @@ int main() {
         auto render = entity->addComponent<RenderComponent>();
         
         transform->setParent(parentRect);
-        
         transform->setLocalPosition(glm::vec3(0.0f, 0.0f, 0.0f));
-        transform->setLocalScale(glm::vec3(0.2f, 0.2f, 1.0f)); // Tiny
+        transform->setLocalScale(glm::vec3(0.2f, 0.2f, 1.0f));
         render->setColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)); // White
-        render->initializeGL();
         
         entities.push_back(entity);
     }
 
     std::cout << "Created " << entities.size() << " rectangles in hierarchical structure." << std::endl;
     std::cout << "  1 parent (large blue) + 5 children (red, green, yellow, magenta, white)" << std::endl;
-    std::cout << "Entering render loop. Press ESC to exit." << std::endl;
+    std::cout << "\n[Architecture] Using modular system:" << std::endl;
+    std::cout << "  - RenderSystem: Handles all OpenGL rendering" << std::endl;
+    std::cout << "  - RenderCollector: Collects component data and batches rendering" << std::endl;
+    std::cout << "\nEntering render loop. Press ESC to exit." << std::endl;
 
     // Render loop
     float time = 0.0f;
     while (!glfwWindowShouldClose(window)) {
-        float currentFrame = static_cast<float>(glfwGetTime());
         float deltaTime = 0.016f; // ~60 FPS
         time += deltaTime;
 
         // Input
         processInput(window);
 
-        // Update world
+        // Update world (which updates all modules)
         world->update(deltaTime);
 
         // Animate the parent rectangle (rotation and slight scaling)
-        // This should affect all child rectangles due to the transform hierarchy
         auto parentTransform = parentRect->getComponent<TransformComponent>();
         if (parentTransform) {
             // Rotate parent slowly
@@ -268,19 +195,12 @@ int main() {
             parentTransform->setLocalScale(glm::vec3(scale, scale, 1.0f));
         }
 
-        // Render
+        // Clear screen
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(shaderProgram);
-
-        // Render all entities
-        for (auto& entity : entities) {
-            auto render = entity->getComponent<RenderComponent>();
-            if (render) {
-                render->render(shaderProgram, entity.get());
-            }
-        }
+        // RenderCollector automatically collects and renders all entities
+        renderCollector->collectAndRender();
 
         // Swap buffers and poll events
         glfwSwapBuffers(window);
@@ -288,11 +208,10 @@ int main() {
     }
 
     // Cleanup
-    std::cout << "Cleaning up..." << std::endl;
+    std::cout << "\nCleaning up..." << std::endl;
     entities.clear();
     world->shutdown();
     
-    glDeleteProgram(shaderProgram);
     glfwTerminate();
     
     std::cout << "Application terminated successfully." << std::endl;
