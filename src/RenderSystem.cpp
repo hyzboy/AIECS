@@ -171,15 +171,19 @@ void RenderSystem::initializeGL() {
 }
 
 void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices, 
-                                const std::vector<glm::vec4>& colors) {
+                                const std::vector<glm::vec4>& materials,
+                                const std::vector<unsigned int>& materialIDs) {
     if (!glInitialized) return;
-    if (modelMatrices.empty() || modelMatrices.size() != colors.size()) return;
+    if (modelMatrices.empty() || modelMatrices.size() != materialIDs.size()) return;
+    if (materials.empty()) return;
 
     size_t instanceCount = modelMatrices.size();
+    size_t materialCount = materials.size();
     
     // Resize SSBOs if needed
-    if (instanceCount > ssboCapacity) {
-        ssboCapacity = instanceCount * 2; // Double the capacity
+    size_t requiredCapacity = std::max(instanceCount, materialCount);
+    if (requiredCapacity > ssboCapacity) {
+        ssboCapacity = requiredCapacity * 2; // Double the capacity
         
         // Resize material SSBO
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
@@ -201,9 +205,9 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices,
         std::cout << "[RenderSystem] Resized SSBOs to " << ssboCapacity << std::endl;
     }
 
-    // Upload materials to SSBO
+    // Upload deduplicated materials to SSBO
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, instanceCount * sizeof(glm::vec4), colors.data());
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, materialCount * sizeof(glm::vec4), materials.data());
 
     // Upload matrices to SSBO
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, matrixSSBO);
@@ -215,8 +219,8 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices,
     std::vector<unsigned int> instanceData;
     instanceData.reserve(instanceCount * 2);
     for (size_t i = 0; i < instanceCount; ++i) {
-        instanceData.push_back(static_cast<unsigned int>(i)); // materialID
-        instanceData.push_back(static_cast<unsigned int>(i)); // matrixID
+        instanceData.push_back(materialIDs[i]); // Use provided material ID (deduplicated)
+        instanceData.push_back(static_cast<unsigned int>(i)); // matrixID (1:1 mapping)
     }
 
     // Upload instance data

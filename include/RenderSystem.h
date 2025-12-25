@@ -19,11 +19,13 @@ public:
     /// Initialize OpenGL resources (shaders, VAO/VBO, SSBOs)
     void initializeGL();
 
-    /// Render a batch of rectangles using SSBO-based instanced rendering
+    /// Render a batch of rectangles using SSBO-based instanced rendering with material deduplication
     /// @param modelMatrices - World transform matrices for each rectangle
-    /// @param colors - Colors for each rectangle
+    /// @param materials - Deduplicated array of materials (colors)
+    /// @param materialIDs - Material ID for each instance (indices into materials array)
     void renderBatch(const std::vector<glm::mat4>& modelMatrices, 
-                     const std::vector<glm::vec4>& colors);
+                     const std::vector<glm::vec4>& materials,
+                     const std::vector<unsigned int>& materialIDs);
 
     /// Get shader program ID
     unsigned int getShaderProgram() const { return shaderProgram; }

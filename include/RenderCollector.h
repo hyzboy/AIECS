@@ -2,15 +2,17 @@
 
 #include "Module.h"
 #include "RenderSystem.h"
+#include "Material.h"
 #include <glm/glm.hpp>
 #include <vector>
+#include <unordered_map>
 #include <memory>
 
 class World;
 class GameEntity;
 
 /// Collector module that gathers RenderComponent data from all entities
-/// and prepares it for batch rendering
+/// and prepares it for batch rendering with material deduplication
 class RenderCollector : public Module {
 public:
     RenderCollector(const std::string& name = "RenderCollector");
@@ -35,5 +37,9 @@ private:
 
     // Temporary buffers for batch data
     std::vector<glm::mat4> modelMatrices;
-    std::vector<glm::vec4> colors;
+    std::vector<unsigned int> materialIDs;
+    
+    // Deduplicated materials
+    std::vector<MaterialPtr> uniqueMaterials;
+    std::unordered_map<MaterialPtr, unsigned int> materialToID;
 };

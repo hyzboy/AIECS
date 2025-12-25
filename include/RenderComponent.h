@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GameEntity.h"
+#include "Material.h"
 #include <glm/glm.hpp>
 #include <string>
 
@@ -11,8 +12,13 @@ public:
     RenderComponent(const std::string& name = "Render");
     ~RenderComponent() override = default;
 
-    void setColor(const glm::vec4& color) { rectColor = color; }
-    const glm::vec4& getColor() const { return rectColor; }
+    // Material accessors
+    void setMaterial(MaterialPtr mat) { material = mat; }
+    MaterialPtr getMaterial() const { return material; }
+
+    // Convenience color accessors (creates new material if needed)
+    void setColor(const glm::vec4& color);
+    glm::vec4 getColor() const;
 
     void setVisible(bool visible) { isVisible = visible; }
     bool getVisible() const { return isVisible; }
@@ -21,6 +27,6 @@ public:
     void onDetach() override;
 
 private:
-    glm::vec4 rectColor = glm::vec4(0.2f, 0.6f, 0.8f, 1.0f); // Default blue
+    MaterialPtr material;
     bool isVisible = true;
 };
