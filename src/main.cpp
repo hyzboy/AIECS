@@ -142,15 +142,17 @@ int main() {
         rotationSpeeds.push_back(0.0f);  // No rotation
         staticCount++;
         
-        // 10% of static rectangles can switch mobility
+        // Select SWITCHABLE_PERCENTAGE (10%) of static rectangles to be switchable
+        // switchSelectDist generates 0-99, so values < 10 = 10% probability
         if (switchSelectDist(rng) < SWITCHABLE_PERCENTAGE) {
             SwitchableRect sr;
             sr.entityIndex = entities.size() - 1;
             sr.nextSwitchTime = switchIntervalDist(rng);
             sr.isCurrentlyMoving = false;
             sr.movementEndTime = 0.0f;
-            sr.rotationSpeed = moveRotSpeedDist(rng);
-            sr.movementVelocity = glm::vec3(moveVelDist(rng), moveVelDist(rng), 0.0f);
+            // Initial values will be regenerated when switching to movable
+            sr.rotationSpeed = 0.0f;
+            sr.movementVelocity = glm::vec3(0.0f, 0.0f, 0.0f);
             switchableRects.push_back(sr);
         }
     }
