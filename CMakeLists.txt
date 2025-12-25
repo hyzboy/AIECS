@@ -10,6 +10,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Find GLM package
 find_package(glm CONFIG REQUIRED)
 
+# Find GLEW package
+find_package(GLEW REQUIRED)
+
+# Find GLFW package
+find_package(glfw3 CONFIG REQUIRED)
+
 # Source files for hybrid architecture (Frostbite OOP + SOA backend)
 set(AIECS_SOURCES
     src/Object.cpp
@@ -31,8 +37,8 @@ target_include_directories(aiecs PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Link GLM
-target_link_libraries(aiecs PRIVATE glm::glm)
+# Link GLM, GLEW, and GLFW
+target_link_libraries(aiecs PRIVATE glm::glm GLEW::GLEW glfw)
 
 # Set output directory
 set_target_properties(aiecs PROPERTIES

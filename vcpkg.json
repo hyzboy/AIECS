@@ -3,6 +3,8 @@
   "name": "aiecs",
   "version": "1.0.0",
   "dependencies": [
-    "glm"
+    "glm",
+    "glew",
+    "glfw3"
   ]
 }
