@@ -10,11 +10,13 @@ RenderCollector::RenderCollector(const std::string& name)
 }
 
 void RenderCollector::initialize() {
-    std::cout << "[RenderCollector] Initializing..." << std::endl;
+    std::cout << "[RenderCollector] Initializing with mobility-based separation..." << std::endl;
     
     // Pre-allocate buffers for performance
-    modelMatrices.reserve(100);
-    materialIDs.reserve(100);
+    staticModelMatrices.reserve(100);
+    staticMaterialIDs.reserve(100);
+    movableModelMatrices.reserve(100);
+    movableMaterialIDs.reserve(100);
     uniqueMaterials.reserve(20); // Typically fewer unique materials
 }
 
@@ -34,14 +36,26 @@ void RenderCollector::collectAndRender() {
         return;
     }
 
-    // Clear previous frame data
-    modelMatrices.clear();
-    materialIDs.clear();
+    // Clear movable data every frame
+    movableModelMatrices.clear();
+    movableMaterialIDs.clear();
+    
+    // Only rebuild static data if dirty
+    if (staticDataDirty) {
+        staticModelMatrices.clear();
+        staticMaterialIDs.clear();
+        staticDataDirty = false;
+    }
+    
+    // Clear material deduplication data each frame
     uniqueMaterials.clear();
     materialToID.clear();
 
     // Collect all entities with both RenderComponent and TransformComponent
     const auto& objects = worldPtr->getObjects();
+    
+    unsigned int staticCount = 0;
+    unsigned int movableCount = 0;
     
     for (const auto& obj : objects) {
         auto entity = std::dynamic_pointer_cast<GameEntity>(obj);
@@ -69,9 +83,24 @@ void RenderCollector::collectAndRender() {
                 materialToID[material] = matID;
             }
 
-            // Collect transform matrix and material ID
-            modelMatrices.push_back(transformComp->getWorldMatrix());
-            materialIDs.push_back(matID);
+            // Get transform matrix
+            glm::mat4 worldMatrix = transformComp->getWorldMatrix();
+            
+            // Separate by mobility type
+            TransformMobility mobility = transformComp->getMobility();
+            if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
+                // Static/Stationary objects - only add if rebuilding
+                if (staticModelMatrices.size() <= staticCount) {
+                    staticModelMatrices.push_back(worldMatrix);
+                    staticMaterialIDs.push_back(matID);
+                    staticCount++;
+                }
+            } else {
+                // Movable objects - always update
+                movableModelMatrices.push_back(worldMatrix);
+                movableMaterialIDs.push_back(matID);
+                movableCount++;
+            }
         }
     }
 
@@ -82,17 +111,35 @@ void RenderCollector::collectAndRender() {
         materialColors.push_back(mat->getColor());
     }
 
+    // Combine static and movable data for rendering
+    std::vector<glm::mat4> allMatrices;
+    std::vector<unsigned int> allMaterialIDs;
+    
+    allMatrices.reserve(staticModelMatrices.size() + movableModelMatrices.size());
+    allMaterialIDs.reserve(staticMaterialIDs.size() + movableMaterialIDs.size());
+    
+    // Add static objects first
+    allMatrices.insert(allMatrices.end(), staticModelMatrices.begin(), staticModelMatrices.end());
+    allMaterialIDs.insert(allMaterialIDs.end(), staticMaterialIDs.begin(), staticMaterialIDs.end());
+    
+    // Add movable objects
+    allMatrices.insert(allMatrices.end(), movableModelMatrices.begin(), movableModelMatrices.end());
+    allMaterialIDs.insert(allMaterialIDs.end(), movableMaterialIDs.begin(), movableMaterialIDs.end());
+
     // Batch render all collected data with deduplicated materials
-    if (!modelMatrices.empty()) {
-        renderSystemPtr->renderBatch(modelMatrices, materialColors, materialIDs);
+    if (!allMatrices.empty()) {
+        renderSystemPtr->renderBatch(allMatrices, materialColors, allMaterialIDs);
         
-        // Log deduplication stats (can be disabled in production)
-        if (uniqueMaterials.size() < modelMatrices.size()) {
-            std::cout << "[RenderCollector] Rendered " << modelMatrices.size() 
-                      << " instances with " << uniqueMaterials.size() 
-                      << " unique materials (saved " 
-                      << (modelMatrices.size() - uniqueMaterials.size()) 
-                      << " material uploads)" << std::endl;
+        // Log separation stats
+        std::cout << "[RenderCollector] Rendered " << allMatrices.size() << " instances: "
+                  << staticModelMatrices.size() << " static/stationary, "
+                  << movableModelMatrices.size() << " movable | "
+                  << uniqueMaterials.size() << " unique materials";
+        
+        if (uniqueMaterials.size() < allMatrices.size()) {
+            std::cout << " (saved " << (allMatrices.size() - uniqueMaterials.size()) 
+                      << " material uploads)";
         }
+        std::cout << std::endl;
     }
 }

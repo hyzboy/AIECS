@@ -35,11 +35,19 @@ private:
     std::weak_ptr<World> world;
     std::weak_ptr<RenderSystem> renderSystem;
 
-    // Temporary buffers for batch data
-    std::vector<glm::mat4> modelMatrices;
-    std::vector<unsigned int> materialIDs;
+    // Temporary buffers for batch data - separated by mobility
+    // Static/Stationary objects (rarely updated)
+    std::vector<glm::mat4> staticModelMatrices;
+    std::vector<unsigned int> staticMaterialIDs;
+    
+    // Movable objects (updated every frame)
+    std::vector<glm::mat4> movableModelMatrices;
+    std::vector<unsigned int> movableMaterialIDs;
     
     // Deduplicated materials
     std::vector<MaterialPtr> uniqueMaterials;
     std::unordered_map<MaterialPtr, unsigned int> materialToID;
+    
+    // Track if static data needs to be rebuilt
+    bool staticDataDirty = true;
 };
