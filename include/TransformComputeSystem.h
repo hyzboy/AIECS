@@ -39,7 +39,7 @@ public:
 
     /// Get computed world matrix SSBO (for binding to rendering)
     GLuint getWorldMatrixSSBO() const { 
-        return worldMatrixSSBO ? worldMatrixSSBO->getBufferID() : 0; 
+        return worldMatrixSSBO ? worldMatrixSSBO->getID() : 0; 
     }
 
     /// Get number of transforms
