@@ -82,8 +82,9 @@ int main() {
     
     // Random number generator
     std::mt19937 rng(42);  // Fixed seed for reproducibility
-    std::uniform_real_distribution<float> posDistX(-0.95f, 0.95f);
-    std::uniform_real_distribution<float> posDistY(-0.95f, 0.95f);
+    constexpr float SCREEN_BOUNDARY = 0.95f;  // Keep rectangles within screen bounds
+    std::uniform_real_distribution<float> posDistX(-SCREEN_BOUNDARY, SCREEN_BOUNDARY);
+    std::uniform_real_distribution<float> posDistY(-SCREEN_BOUNDARY, SCREEN_BOUNDARY);
     std::uniform_real_distribution<float> scaleDistSmall(0.005f, 0.02f);
     std::uniform_real_distribution<float> scaleDistMedium(0.02f, 0.05f);
     std::uniform_real_distribution<float> colorDist(0.2f, 1.0f);
@@ -265,8 +266,8 @@ int main() {
                     glm::vec3 newPos = currentPos + sr.movementVelocity * deltaTime;
                     
                     // Keep within bounds
-                    newPos.x = glm::clamp(newPos.x, -0.95f, 0.95f);
-                    newPos.y = glm::clamp(newPos.y, -0.95f, 0.95f);
+                    newPos.x = glm::clamp(newPos.x, -SCREEN_BOUNDARY, SCREEN_BOUNDARY);
+                    newPos.y = glm::clamp(newPos.y, -SCREEN_BOUNDARY, SCREEN_BOUNDARY);
                     
                     transform->setLocalPosition(newPos);
                 }
