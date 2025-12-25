@@ -2,6 +2,7 @@
 
 #include "Module.h"
 #include "VBO.h"
+#include "VAO.h"
 #include "SSBOBuffer.h"
 #include "InstanceVBO.h"
 #include <GL/glew.h>
@@ -50,8 +51,8 @@ private:
 
     // OpenGL resources
     unsigned int shaderProgram = 0;
-    unsigned int staticVAO = 0;   // VAO for static/stationary objects
-    unsigned int dynamicVAO = 0;  // VAO for dynamic/movable objects
+    std::unique_ptr<VAO> staticVAO;   // VAO for static/stationary objects
+    std::unique_ptr<VAO> dynamicVAO;  // VAO for dynamic/movable objects
     std::unique_ptr<VBO<float>> vertexVBO;  // Vertex positions (shared)
     
     // Static data resources (GL_STATIC_DRAW - rarely updated)
