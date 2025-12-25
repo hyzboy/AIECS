@@ -66,9 +66,13 @@ void RenderSystem::update(float deltaTime) {
 
 void RenderSystem::shutdown() {
     if (glInitialized) {
-        if (VAO != 0) {
-            glDeleteVertexArrays(1, &VAO);
-            VAO = 0;
+        if (staticVAO != 0) {
+            glDeleteVertexArrays(1, &staticVAO);
+            staticVAO = 0;
+        }
+        if (dynamicVAO != 0) {
+            glDeleteVertexArrays(1, &dynamicVAO);
+            dynamicVAO = 0;
         }
         
         // Clean up using smart pointers (automatic)
@@ -95,7 +99,7 @@ void RenderSystem::shutdown() {
 void RenderSystem::initializeGL() {
     if (glInitialized) return;
 
-    std::cout << "[RenderSystem] Initializing dual SSBO/VBO architecture with VBO-based vertex management..." << std::endl;
+    std::cout << "[RenderSystem] Initializing dual VAO architecture with ARB_vertex_attrib_binding..." << std::endl;
 
     // Create shader program
     shaderProgram = createShaderProgram();
@@ -112,19 +116,11 @@ void RenderSystem::initializeGL() {
         -0.5f,  0.5f, 0.0f   // top left
     };
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
     // Setup vertex buffer (position data) using VBO class - shared between static and dynamic
     vertexVBO = std::make_unique<VBO<float>>(GL_STATIC_DRAW);
     vertexVBO->initialize(vertices.size());
     vertexVBO->uploadData(vertices);
     
-    // Bind and setup vertex attribute (traditional API needed for VAO)
-    vertexVBO->bind(GL_ARRAY_BUFFER);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
     // Initialize static resources (GL_STATIC_DRAW)
     staticMaterialIDVBO = std::make_unique<InstanceVBO<unsigned int>>(1, GL_STATIC_DRAW);
     staticMatrixIDVBO = std::make_unique<InstanceVBO<unsigned int>>(2, GL_STATIC_DRAW);
@@ -147,6 +143,63 @@ void RenderSystem::initializeGL() {
     dynamicMaterialSSBO->initialize(100);
     dynamicMatrixSSBO->initialize(100);
 
+    // ===== CREATE STATIC VAO with ARB_vertex_attrib_binding =====
+    glGenVertexArrays(1, &staticVAO);
+    glBindVertexArray(staticVAO);
+    
+    // Define vertex format once (ARB_vertex_attrib_binding)
+    // Binding 0: Position (vec3, from vertexVBO)
+    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexAttribBinding(0, 0);  // Attribute 0 -> Binding 0
+    glEnableVertexAttribArray(0);
+    
+    // Binding 1: Material ID (uint, from staticMaterialIDVBO)
+    glVertexAttribIFormat(1, 1, GL_UNSIGNED_INT, 0);
+    glVertexAttribBinding(1, 1);  // Attribute 1 -> Binding 1
+    glEnableVertexAttribArray(1);
+    
+    // Binding 2: Matrix ID (uint, from staticMatrixIDVBO)
+    glVertexAttribIFormat(2, 1, GL_UNSIGNED_INT, 0);
+    glVertexAttribBinding(2, 2);  // Attribute 2 -> Binding 2
+    glEnableVertexAttribArray(2);
+    
+    // Bind buffers to binding points (ARB_vertex_attrib_binding)
+    glBindVertexBuffer(0, vertexVBO->getBufferID(), 0, 3 * sizeof(float));  // Binding 0: position, divisor 0 (per-vertex)
+    glBindVertexBuffer(1, staticMaterialIDVBO->getBufferID(), 0, sizeof(unsigned int));  // Binding 1: materialID, divisor 1 (per-instance)
+    glBindVertexBuffer(2, staticMatrixIDVBO->getBufferID(), 0, sizeof(unsigned int));  // Binding 2: matrixID, divisor 1 (per-instance)
+    
+    // Set divisors (0 = per-vertex, 1 = per-instance)
+    glVertexBindingDivisor(0, 0);  // Position: per-vertex
+    glVertexBindingDivisor(1, 1);  // Material ID: per-instance
+    glVertexBindingDivisor(2, 1);  // Matrix ID: per-instance
+    
+    // ===== CREATE DYNAMIC VAO with ARB_vertex_attrib_binding =====
+    glGenVertexArrays(1, &dynamicVAO);
+    glBindVertexArray(dynamicVAO);
+    
+    // Define vertex format once (same as static VAO)
+    glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexAttribBinding(0, 0);
+    glEnableVertexAttribArray(0);
+    
+    glVertexAttribIFormat(1, 1, GL_UNSIGNED_INT, 0);
+    glVertexAttribBinding(1, 1);
+    glEnableVertexAttribArray(1);
+    
+    glVertexAttribIFormat(2, 1, GL_UNSIGNED_INT, 0);
+    glVertexAttribBinding(2, 2);
+    glEnableVertexAttribArray(2);
+    
+    // Bind buffers to binding points (dynamic buffers)
+    glBindVertexBuffer(0, vertexVBO->getBufferID(), 0, 3 * sizeof(float));  // Binding 0: position (shared)
+    glBindVertexBuffer(1, dynamicMaterialIDVBO->getBufferID(), 0, sizeof(unsigned int));  // Binding 1: materialID
+    glBindVertexBuffer(2, dynamicMatrixIDVBO->getBufferID(), 0, sizeof(unsigned int));  // Binding 2: matrixID
+    
+    // Set divisors
+    glVertexBindingDivisor(0, 0);  // Position: per-vertex
+    glVertexBindingDivisor(1, 1);  // Material ID: per-instance
+    glVertexBindingDivisor(2, 1);  // Matrix ID: per-instance
+
     glBindVertexArray(0);
 
     // Set up orthographic projection for 2D rendering
@@ -157,7 +210,7 @@ void RenderSystem::initializeGL() {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 
     glInitialized = true;
-    std::cout << "[RenderSystem] VBO-based dual SSBO/VBO architecture initialization complete." << std::endl;
+    std::cout << "[RenderSystem] Dual VAO architecture with ARB_vertex_attrib_binding initialization complete." << std::endl;
 }
 
 void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
@@ -177,9 +230,8 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
     }
     
     glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
     
-    // === RENDER STATIC OBJECTS ===
+    // ===== RENDER STATIC OBJECTS using staticVAO =====
     if (staticCount > 0 && !staticMaterials.empty()) {
         // Upload static data ONLY ONCE (GL_STATIC_DRAW optimization)
         if (!staticDataUploaded) {
@@ -202,19 +254,18 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
                       << staticMaterials.size() << " materials" << std::endl;
         }
         
+        // Bind static VAO (ARB_vertex_attrib_binding: all buffers already bound!)
+        glBindVertexArray(staticVAO);
+        
         // Bind SSBOs (binding is needed every frame even if data doesn't change)
         staticMaterialSSBO->bind();
         staticMatrixSSBO->bind();
         
-        // Setup vertex attributes (needed every frame)
-        staticMaterialIDVBO->setupAttribute(1, true);  // 1 component, integer
-        staticMatrixIDVBO->setupAttribute(1, true);    // 1 component, integer
-        
-        // Draw static instances
+        // Draw static instances (no attribute setup needed - VAO has everything!)
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<GLsizei>(staticCount));
     }
     
-    // === RENDER DYNAMIC OBJECTS ===
+    // ===== RENDER DYNAMIC OBJECTS using dynamicVAO =====
     if (dynamicCount > 0 && !dynamicMaterials.empty()) {
         // Upload dynamic data using helper classes (automatic resizing, every frame)
         dynamicMaterialSSBO->uploadData(dynamicMaterials);
@@ -229,15 +280,14 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& staticMatrices,
         }
         dynamicMatrixIDVBO->uploadData(dynamicMatrixIDs_data);
         
+        // Bind dynamic VAO (ARB_vertex_attrib_binding: all buffers already bound!)
+        glBindVertexArray(dynamicVAO);
+        
         // Bind SSBOs
         dynamicMaterialSSBO->bind();
         dynamicMatrixSSBO->bind();
         
-        // Setup vertex attributes
-        dynamicMaterialIDVBO->setupAttribute(1, true);  // 1 component, integer
-        dynamicMatrixIDVBO->setupAttribute(1, true);    // 1 component, integer
-        
-        // Draw dynamic instances
+        // Draw dynamic instances (no attribute setup needed - VAO has everything!)
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<GLsizei>(dynamicCount));
     }
     

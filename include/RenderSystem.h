@@ -50,7 +50,8 @@ private:
 
     // OpenGL resources
     unsigned int shaderProgram = 0;
-    unsigned int VAO = 0;
+    unsigned int staticVAO = 0;   // VAO for static/stationary objects
+    unsigned int dynamicVAO = 0;  // VAO for dynamic/movable objects
     std::unique_ptr<VBO<float>> vertexVBO;  // Vertex positions (shared)
     
     // Static data resources (GL_STATIC_DRAW - rarely updated)

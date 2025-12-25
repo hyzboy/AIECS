@@ -106,6 +106,9 @@ public:
 
     /// Get buffer ID
     GLuint getID() const { return bufferID; }
+    
+    /// Get buffer ID (alias for consistency with VBO)
+    GLuint getBufferID() const { return bufferID; }
 
     /// Get attribute location
     GLuint getLocation() const { return attributeLocation; }
