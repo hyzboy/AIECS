@@ -7,8 +7,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find GLM package
+# Find packages
 find_package(glm CONFIG REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 
 # Source files for hybrid architecture (Frostbite OOP + SOA backend)
 set(AIECS_SOURCES
@@ -20,6 +22,7 @@ set(AIECS_SOURCES
     src/TransformComponent.cpp
     src/CollisionComponent.cpp
     src/RenderComponent.cpp
+    src/OpenGLRenderer.cpp
     src/main.cpp
 )
 
@@ -31,8 +34,12 @@ target_include_directories(aiecs PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Link GLM
-target_link_libraries(aiecs PRIVATE glm::glm)
+# Link libraries
+target_link_libraries(aiecs PRIVATE 
+    glm::glm
+    GLEW::GLEW
+    glfw
+)
 
 # Set output directory
 set_target_properties(aiecs PROPERTIES

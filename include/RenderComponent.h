@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GameEntity.h"
+#include <glm/glm.hpp>
 #include <string>
 
 /// Render component for Frostbite architecture
@@ -20,6 +21,10 @@ public:
 
     void setCastShadows(bool cast) { castsShadows = cast; }
     bool getCastShadows() const { return castsShadows; }
+    
+    // Color for simple rendering
+    void setColor(const glm::vec3& col) { color = col; }
+    const glm::vec3& getColor() const { return color; }
 
     void onAttach() override;
     void onDetach() override;
@@ -29,4 +34,5 @@ private:
     std::string materialName;
     bool isVisible = true;
     bool castsShadows = true;
+    glm::vec3 color = glm::vec3(1.0f, 1.0f, 1.0f); // Default white color
 };
