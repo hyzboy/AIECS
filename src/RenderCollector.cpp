@@ -10,7 +10,7 @@ RenderCollector::RenderCollector(const std::string& name)
 }
 
 void RenderCollector::initialize() {
-    std::cout << "[RenderCollector] Initializing with mobility and material mutability separation..." << std::endl;
+    std::cout << "[RenderCollector] Initializing with zero-touch static optimization..." << std::endl;
     
     // Pre-allocate buffers for performance
     staticModelMatrices.reserve(100);
@@ -19,6 +19,8 @@ void RenderCollector::initialize() {
     movableMaterialIDs.reserve(100);
     uniqueStaticMaterials.reserve(20);
     uniqueDynamicMaterials.reserve(20);
+    staticEntities.reserve(100);
+    movableEntities.reserve(100);
 }
 
 void RenderCollector::update(float deltaTime) {
@@ -37,101 +39,102 @@ void RenderCollector::collectAndRender() {
         return;
     }
 
-    // Clear movable data every frame
-    movableModelMatrices.clear();
-    movableMaterialIDs.clear();
-    
-    // Clear dynamic materials every frame
-    uniqueDynamicMaterials.clear();
-    
-    // Only rebuild static data if dirty
-    if (staticDataDirty) {
+    // Initialize data structure on first frame only
+    if (!dataInitialized) {
+        std::cout << "[RenderCollector] First frame - building static data structures..." << std::endl;
+        
+        // Clear all data
         staticModelMatrices.clear();
         staticMaterialIDs.clear();
-        staticDataDirty = false;
-    }
-    
-    // Only rebuild static materials if dirty
-    if (staticMaterialsDirty) {
+        movableModelMatrices.clear();
+        movableMaterialIDs.clear();
         uniqueStaticMaterials.clear();
-        staticMaterialsDirty = false;
-    }
-    
-    // Clear material deduplication mapping each frame (rebuild from scratch)
-    materialToID.clear();
-    
-    // Build material ID mapping starting with static materials
-    for (const auto& mat : uniqueStaticMaterials) {
-        materialToID[mat] = static_cast<unsigned int>(materialToID.size());
-    }
+        uniqueDynamicMaterials.clear();
+        materialToID.clear();
+        staticEntities.clear();
+        movableEntities.clear();
+        
+        // Collect all entities with both RenderComponent and TransformComponent
+        const auto& objects = worldPtr->getObjects();
+        
+        for (const auto& obj : objects) {
+            auto entity = std::dynamic_pointer_cast<GameEntity>(obj);
+            if (!entity) continue;
 
-    // Collect all entities with both RenderComponent and TransformComponent
-    const auto& objects = worldPtr->getObjects();
-    
-    unsigned int staticCount = 0;
-    unsigned int movableCount = 0;
-    
-    for (const auto& obj : objects) {
-        auto entity = std::dynamic_pointer_cast<GameEntity>(obj);
-        if (!entity) continue;
+            // Check if entity has both required components
+            auto renderComp = entity->getComponent<RenderComponent>();
+            auto transformComp = entity->getComponent<TransformComponent>();
 
-        // Check if entity has both required components
-        auto renderComp = entity->getComponent<RenderComponent>();
-        auto transformComp = entity->getComponent<TransformComponent>();
+            if (renderComp && transformComp && renderComp->getVisible()) {
+                // Get material from render component
+                auto material = renderComp->getMaterial();
+                if (!material) continue;
 
-        if (renderComp && transformComp && renderComp->getVisible()) {
-            // Get material from render component
-            auto material = renderComp->getMaterial();
-            if (!material) continue;
-
-            // Deduplicate materials - separate static and dynamic
-            unsigned int matID;
-            auto it = materialToID.find(material);
-            if (it != materialToID.end()) {
-                // Material already exists, reuse ID
-                matID = it->second;
-            } else {
-                // New material, assign new ID and add to appropriate list
-                matID = static_cast<unsigned int>(materialToID.size());
-                materialToID[material] = matID;
-                
-                if (material->isStatic()) {
-                    uniqueStaticMaterials.push_back(material);
+                // Deduplicate materials (do once)
+                unsigned int matID;
+                auto it = materialToID.find(material);
+                if (it != materialToID.end()) {
+                    // Material already exists, reuse ID
+                    matID = it->second;
                 } else {
-                    uniqueDynamicMaterials.push_back(material);
+                    // New material, assign new ID and add to appropriate list
+                    matID = static_cast<unsigned int>(materialToID.size());
+                    materialToID[material] = matID;
+                    
+                    if (material->isStatic()) {
+                        uniqueStaticMaterials.push_back(material);
+                    } else {
+                        uniqueDynamicMaterials.push_back(material);
+                    }
                 }
-            }
 
-            // Get transform matrix
-            glm::mat4 worldMatrix = transformComp->getWorldMatrix();
-            
-            // Separate by mobility type
-            TransformMobility mobility = transformComp->getMobility();
-            if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
-                // Static/Stationary objects - only add if rebuilding
-                if (staticModelMatrices.size() <= staticCount) {
+                // Get transform matrix
+                glm::mat4 worldMatrix = transformComp->getWorldMatrix();
+                
+                // Separate by mobility type
+                TransformMobility mobility = transformComp->getMobility();
+                if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
+                    // Static/Stationary objects - store entity reference and data
+                    staticEntities.push_back(entity);
                     staticModelMatrices.push_back(worldMatrix);
                     staticMaterialIDs.push_back(matID);
-                    staticCount++;
+                } else {
+                    // Movable objects - store entity reference and data
+                    movableEntities.push_back(entity);
+                    movableModelMatrices.push_back(worldMatrix);
+                    movableMaterialIDs.push_back(matID);  // Material ID never changes!
                 }
-            } else {
-                // Movable objects - always update
-                movableModelMatrices.push_back(worldMatrix);
-                movableMaterialIDs.push_back(matID);
-                movableCount++;
             }
         }
+        
+        dataInitialized = true;
+        std::cout << "[RenderCollector] Static data initialized: "
+                  << staticEntities.size() << " static/stationary, "
+                  << movableEntities.size() << " movable | "
+                  << uniqueStaticMaterials.size() << " static materials, "
+                  << uniqueDynamicMaterials.size() << " dynamic materials" << std::endl;
+    } else {
+        // After first frame: Only update movable matrices (not VBO IDs, not materials!)
+        movableModelMatrices.clear();
+        for (size_t i = 0; i < movableEntities.size(); ++i) {
+            auto entity = movableEntities[i];
+            auto transformComp = entity->getComponent<TransformComponent>();
+            if (transformComp) {
+                movableModelMatrices.push_back(transformComp->getWorldMatrix());
+            }
+        }
+        // Note: movableMaterialIDs never changes after initialization!
     }
 
-    // Extract colors from deduplicated materials for rendering
-    // Static materials
+    // Extract colors from deduplicated materials for rendering (do once on init)
+    // Static materials (never changes after initialization)
     std::vector<glm::vec4> staticMaterialColors;
     staticMaterialColors.reserve(uniqueStaticMaterials.size());
     for (const auto& mat : uniqueStaticMaterials) {
         staticMaterialColors.push_back(mat->getColor());
     }
     
-    // Dynamic materials
+    // Dynamic materials (never changes after initialization)
     std::vector<glm::vec4> dynamicMaterialColors;
     dynamicMaterialColors.reserve(uniqueDynamicMaterials.size());
     for (const auto& mat : uniqueDynamicMaterials) {
@@ -142,21 +145,5 @@ void RenderCollector::collectAndRender() {
     if (!staticModelMatrices.empty() || !movableModelMatrices.empty()) {
         renderSystemPtr->renderBatch(staticModelMatrices, staticMaterialColors, staticMaterialIDs,
                                       movableModelMatrices, dynamicMaterialColors, movableMaterialIDs);
-        
-        // Log separation stats
-        size_t totalInstances = staticModelMatrices.size() + movableModelMatrices.size();
-        size_t totalUniqueMaterials = uniqueStaticMaterials.size() + uniqueDynamicMaterials.size();
-        
-        std::cout << "[RenderCollector] Rendered " << totalInstances << " instances: "
-                  << staticModelMatrices.size() << " static/stationary (GL_STATIC_DRAW), "
-                  << movableModelMatrices.size() << " movable (GL_DYNAMIC_DRAW) | "
-                  << uniqueStaticMaterials.size() << " static materials (GL_STATIC_DRAW), "
-                  << uniqueDynamicMaterials.size() << " dynamic materials (GL_DYNAMIC_DRAW)";
-        
-        if (totalUniqueMaterials < totalInstances) {
-            std::cout << " (saved " << (totalInstances - totalUniqueMaterials) 
-                      << " material uploads)";
-        }
-        std::cout << std::endl;
     }
 }
