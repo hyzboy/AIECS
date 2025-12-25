@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-/// Dedicated rendering module for drawing 2D rectangles
+/// Dedicated rendering module for drawing 2D rectangles using SSBO-based rendering
 /// Handles all OpenGL rendering operations
 class RenderSystem : public Module {
 public:
@@ -16,10 +16,10 @@ public:
     void update(float deltaTime) override;
     void shutdown() override;
 
-    /// Initialize OpenGL resources (shaders, VAO/VBO)
+    /// Initialize OpenGL resources (shaders, VAO/VBO, SSBOs)
     void initializeGL();
 
-    /// Render a batch of rectangles using instanced rendering
+    /// Render a batch of rectangles using SSBO-based instanced rendering
     /// @param modelMatrices - World transform matrices for each rectangle
     /// @param colors - Colors for each rectangle
     void renderBatch(const std::vector<glm::mat4>& modelMatrices, 
@@ -31,19 +31,22 @@ public:
 private:
     unsigned int compileShader(GLenum type, const char* source);
     unsigned int createShaderProgram();
-    void setupInstanceBuffers();
 
     // OpenGL resources
     unsigned int shaderProgram = 0;
     unsigned int VAO = 0;
     unsigned int VBO = 0;
-    unsigned int instanceMatrixVBO = 0;  // VBO for instance matrices
-    unsigned int instanceColorVBO = 0;   // VBO for instance colors
+    unsigned int instanceDataVBO = 0;  // VBO for instance IDs (materialID, matrixID)
+    
+    // SSBO resources
+    unsigned int materialSSBO = 0;     // SSBO for materials (colors)
+    unsigned int matrixSSBO = 0;       // SSBO for matrices
+    
     bool glInitialized = false;
 
     // Projection matrix for 2D rendering
     glm::mat4 projectionMatrix;
     
-    // Instance buffer capacity
-    size_t instanceBufferCapacity = 100;
+    // SSBO capacity
+    size_t ssboCapacity = 100;
 };

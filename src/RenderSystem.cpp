@@ -3,12 +3,23 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
-// Vertex shader with instanced rendering support
+// Vertex shader with SSBO-based rendering
+// Uses material ID and matrix ID to lookup data from SSBOs
 const char* vertexShaderSource = R"(
-#version 330 core
+#version 430 core
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in mat4 aInstanceMatrix;
-layout (location = 5) in vec4 aInstanceColor;
+layout (location = 1) in uint aMaterialID;
+layout (location = 2) in uint aMatrixID;
+
+// SSBO for materials (colors)
+layout (std430, binding = 0) buffer MaterialBuffer {
+    vec4 materials[];
+};
+
+// SSBO for matrices
+layout (std430, binding = 1) buffer MatrixBuffer {
+    mat4 matrices[];
+};
 
 uniform mat4 projection;
 
@@ -16,14 +27,18 @@ out vec4 vColor;
 
 void main()
 {
-    gl_Position = projection * aInstanceMatrix * vec4(aPos, 1.0);
-    vColor = aInstanceColor;
+    // Lookup matrix and material from SSBOs
+    mat4 modelMatrix = matrices[aMatrixID];
+    vec4 materialColor = materials[aMaterialID];
+    
+    gl_Position = projection * modelMatrix * vec4(aPos, 1.0);
+    vColor = materialColor;
 }
 )";
 
-// Fragment shader with per-instance color
+// Fragment shader - unchanged
 const char* fragmentShaderSource = R"(
-#version 330 core
+#version 430 core
 in vec4 vColor;
 out vec4 FragColor;
 
@@ -59,13 +74,17 @@ void RenderSystem::shutdown() {
             glDeleteBuffers(1, &VBO);
             VBO = 0;
         }
-        if (instanceMatrixVBO != 0) {
-            glDeleteBuffers(1, &instanceMatrixVBO);
-            instanceMatrixVBO = 0;
+        if (instanceDataVBO != 0) {
+            glDeleteBuffers(1, &instanceDataVBO);
+            instanceDataVBO = 0;
         }
-        if (instanceColorVBO != 0) {
-            glDeleteBuffers(1, &instanceColorVBO);
-            instanceColorVBO = 0;
+        if (materialSSBO != 0) {
+            glDeleteBuffers(1, &materialSSBO);
+            materialSSBO = 0;
+        }
+        if (matrixSSBO != 0) {
+            glDeleteBuffers(1, &matrixSSBO);
+            matrixSSBO = 0;
         }
         if (shaderProgram != 0) {
             glDeleteProgram(shaderProgram);
@@ -79,7 +98,7 @@ void RenderSystem::shutdown() {
 void RenderSystem::initializeGL() {
     if (glInitialized) return;
 
-    std::cout << "[RenderSystem] Initializing OpenGL resources for instanced rendering..." << std::endl;
+    std::cout << "[RenderSystem] Initializing OpenGL resources with SSBO-based rendering..." << std::endl;
 
     // Create shader program
     shaderProgram = createShaderProgram();
@@ -98,8 +117,9 @@ void RenderSystem::initializeGL() {
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &instanceMatrixVBO);
-    glGenBuffers(1, &instanceColorVBO);
+    glGenBuffers(1, &instanceDataVBO);
+    glGenBuffers(1, &materialSSBO);
+    glGenBuffers(1, &matrixSSBO);
 
     glBindVertexArray(VAO);
 
@@ -109,27 +129,35 @@ void RenderSystem::initializeGL() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // Setup instance matrix buffer (location 1-4, mat4 takes 4 attribute slots)
-    glBindBuffer(GL_ARRAY_BUFFER, instanceMatrixVBO);
-    glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+    // Setup instance data buffer (materialID and matrixID per instance)
+    // Each instance has 2 uints: materialID, matrixID
+    glBindBuffer(GL_ARRAY_BUFFER, instanceDataVBO);
+    glBufferData(GL_ARRAY_BUFFER, ssboCapacity * 2 * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
     
-    // mat4 attributes (location 1-4)
-    for (unsigned int i = 0; i < 4; i++) {
-        glEnableVertexAttribArray(1 + i);
-        glVertexAttribPointer(1 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), 
-                             (void*)(sizeof(glm::vec4) * i));
-        glVertexAttribDivisor(1 + i, 1); // Per instance, not per vertex
-    }
-
-    // Setup instance color buffer (location 5)
-    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
-    glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(5);
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)0);
-    glVertexAttribDivisor(5, 1); // Per instance
+    // Material ID (location 1)
+    glEnableVertexAttribArray(1);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, 2 * sizeof(unsigned int), (void*)0);
+    glVertexAttribDivisor(1, 1); // Per instance
+    
+    // Matrix ID (location 2)
+    glEnableVertexAttribArray(2);
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, 2 * sizeof(unsigned int), (void*)sizeof(unsigned int));
+    glVertexAttribDivisor(2, 1); // Per instance
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    // Setup Material SSBO (binding point 0)
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, ssboCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, materialSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    // Setup Matrix SSBO (binding point 1)
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, matrixSSBO);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, ssboCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, matrixSSBO);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Set up orthographic projection for 2D rendering
     projectionMatrix = glm::ortho(-2.0f, 2.0f, -1.5f, 1.5f, -1.0f, 1.0f);
@@ -139,7 +167,7 @@ void RenderSystem::initializeGL() {
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 
     glInitialized = true;
-    std::cout << "[RenderSystem] Instanced rendering initialization complete." << std::endl;
+    std::cout << "[RenderSystem] SSBO-based rendering initialization complete." << std::endl;
 }
 
 void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices, 
@@ -149,25 +177,51 @@ void RenderSystem::renderBatch(const std::vector<glm::mat4>& modelMatrices,
 
     size_t instanceCount = modelMatrices.size();
     
-    // Resize buffers if needed
-    if (instanceCount > instanceBufferCapacity) {
-        instanceBufferCapacity = instanceCount * 2; // Double the capacity
+    // Resize SSBOs if needed
+    if (instanceCount > ssboCapacity) {
+        ssboCapacity = instanceCount * 2; // Double the capacity
         
-        glBindBuffer(GL_ARRAY_BUFFER, instanceMatrixVBO);
-        glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+        // Resize material SSBO
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, ssboCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, materialSSBO);
         
-        glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
-        glBufferData(GL_ARRAY_BUFFER, instanceBufferCapacity * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW);
+        // Resize matrix SSBO
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, matrixSSBO);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, ssboCapacity * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, matrixSSBO);
         
-        std::cout << "[RenderSystem] Resized instance buffers to " << instanceBufferCapacity << std::endl;
+        // Resize instance data VBO
+        glBindBuffer(GL_ARRAY_BUFFER, instanceDataVBO);
+        glBufferData(GL_ARRAY_BUFFER, ssboCapacity * 2 * sizeof(unsigned int), nullptr, GL_DYNAMIC_DRAW);
+        
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        
+        std::cout << "[RenderSystem] Resized SSBOs to " << ssboCapacity << std::endl;
+    }
+
+    // Upload materials to SSBO
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, materialSSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, instanceCount * sizeof(glm::vec4), colors.data());
+
+    // Upload matrices to SSBO
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, matrixSSBO);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, instanceCount * sizeof(glm::mat4), modelMatrices.data());
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    // Build instance data (materialID and matrixID for each instance)
+    std::vector<unsigned int> instanceData;
+    instanceData.reserve(instanceCount * 2);
+    for (size_t i = 0; i < instanceCount; ++i) {
+        instanceData.push_back(static_cast<unsigned int>(i)); // materialID
+        instanceData.push_back(static_cast<unsigned int>(i)); // matrixID
     }
 
     // Upload instance data
-    glBindBuffer(GL_ARRAY_BUFFER, instanceMatrixVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, instanceCount * sizeof(glm::mat4), modelMatrices.data());
-
-    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, instanceCount * sizeof(glm::vec4), colors.data());
+    glBindBuffer(GL_ARRAY_BUFFER, instanceDataVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, instanceData.size() * sizeof(unsigned int), instanceData.data());
 
     // Draw all instances in a single call
     glUseProgram(shaderProgram);
