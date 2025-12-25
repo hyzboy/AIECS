@@ -7,7 +7,7 @@
 
 /// Render component for 2D rectangle rendering with OpenGL
 /// Stores rendering data only - actual rendering is done by RenderSystem
-class RenderComponent : public Component {
+class RenderComponent : public EntityComponent {
 public:
     RenderComponent(const std::string& name = "Render");
     ~RenderComponent() override = default;

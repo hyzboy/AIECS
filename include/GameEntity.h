@@ -1,41 +1,11 @@
 #pragma once
 
 #include "Object.h"
+#include "EntityComponent.h"
 #include <memory>
 #include <unordered_map>
 #include <typeinfo>
 #include <string>
-
-/// Base component class for GameEntity
-class GameEntity; // Forward declaration
-
-class Component {
-public:
-    explicit Component(const std::string& name = "Component")
-        : componentName(name) {}
-    virtual ~Component() = default;
-
-    /// Called when component is attached
-    virtual void onAttach() {}
-
-    /// Called each frame
-    virtual void onUpdate(float deltaTime) {}
-
-    /// Called when component is detached
-    virtual void onDetach() {}
-
-    const std::string& getName() const { return componentName; }
-    
-    /// Set the owner entity
-    void setOwner(std::shared_ptr<GameEntity> entity) { owner = entity; }
-    
-    /// Get the owner entity
-    std::shared_ptr<GameEntity> getOwner() const { return owner.lock(); }
-
-protected:
-    std::string componentName;
-    std::weak_ptr<GameEntity> owner;
-};
 
 /// GameEntity - represents game objects with components
 /// This replaces the Entity class in the Frostbite architecture
@@ -88,5 +58,5 @@ public:
 private:
     // Use hash_code instead of string for faster lookups
     // hash_code is much cheaper than string comparison
-    std::unordered_map<std::size_t, std::shared_ptr<Component>> components;
+    std::unordered_map<std::size_t, std::shared_ptr<EntityComponent>> components;
 };

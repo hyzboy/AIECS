@@ -69,3 +69,4 @@ Makefile
 /aiecs_hybrid.dir
 /aiecs_original.dir
 /x64
+/.cmake

@@ -16,7 +16,7 @@ enum class TransformMobility {
 /// Transform component for Frostbite architecture
 /// Uses SOA (Structure of Arrays) storage for better cache performance
 /// while maintaining OOP component interface
-class TransformComponent : public Component {
+class TransformComponent : public EntityComponent {
 public:
     TransformComponent(const std::string& name = "Transform");
     ~TransformComponent() override;

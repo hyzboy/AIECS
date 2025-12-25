@@ -1,7 +1,7 @@
 #include "RenderComponent.h"
 
 RenderComponent::RenderComponent(const std::string& name)
-    : Component(name) {
+    : EntityComponent(name) {
     // Create default material with blue color
     material = std::make_shared<Material>(glm::vec4(0.2f, 0.6f, 0.8f, 1.0f));
 }
@@ -22,11 +22,11 @@ glm::vec4 RenderComponent::getColor() const {
 }
 
 void RenderComponent::onAttach() {
-    // Component attached - no OpenGL initialization needed
+    // EntityComponent attached - no OpenGL initialization needed
     // RenderSystem handles all rendering
 }
 
 void RenderComponent::onDetach() {
-    // Component detached - no cleanup needed
+    // EntityComponent detached - no cleanup needed
 }
 

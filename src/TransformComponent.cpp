@@ -4,7 +4,7 @@
 #include <algorithm>
 
 TransformComponent::TransformComponent(const std::string& name)
-    : Component(name) {
+    : EntityComponent(name) {
     // Allocate space in shared SOA storage
     auto storage = getSharedStorage();
     storageHandle = storage->allocate();
@@ -249,11 +249,11 @@ void TransformComponent::onUpdate(float deltaTime) {
 }
 
 void TransformComponent::onAttach() {
-    // Component attached to entity
+    // EntityComponent attached to entity
 }
 
 void TransformComponent::onDetach() {
-    // Component detached from entity
+    // EntityComponent detached from entity
     parentEntity.reset();
     childEntities.clear();
 }

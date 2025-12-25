@@ -3,10 +3,10 @@
 #include "GameEntity.h"
 #include <glm/glm.hpp>
 
-/// Component that enables automatic mobility switching for static/movable transitions
+/// EntityComponent that enables automatic mobility switching for static/movable transitions
 /// Entities with this component will periodically switch from Static to Movable,
 /// move for a specified duration, then switch back to Static
-class MobilitySwitcherComponent : public Component {
+class MobilitySwitcherComponent : public EntityComponent {
 public:
     MobilitySwitcherComponent(const std::string& name = "MobilitySwitcher");
     ~MobilitySwitcherComponent() override = default;

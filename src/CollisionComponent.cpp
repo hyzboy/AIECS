@@ -6,7 +6,7 @@ std::shared_ptr<CollisionDataStorage> CollisionComponent::s_sharedStorage =
     std::make_shared<CollisionDataStorage>();
 
 CollisionComponent::CollisionComponent(const std::string& name)
-    : Component(name) {
+    : EntityComponent(name) {
     // 在 SOA 存储中分配槽位
     storageHandle = s_sharedStorage->allocate();
     
@@ -65,9 +65,9 @@ std::shared_ptr<CollisionDataStorage> CollisionComponent::getSharedStorage() {
 }
 
 void CollisionComponent::onAttach() {
-    // Component attached
+    // EntityComponent attached
 }
 
 void CollisionComponent::onDetach() {
-    // Component detached
+    // EntityComponent detached
 }

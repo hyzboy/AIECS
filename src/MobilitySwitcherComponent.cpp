@@ -2,7 +2,7 @@
 #include <iostream>
 
 MobilitySwitcherComponent::MobilitySwitcherComponent(const std::string& name)
-    : Component(name) {
+    : EntityComponent(name) {
 }
 
 void MobilitySwitcherComponent::configure(float minInterval, float maxInterval, float duration) {
@@ -17,7 +17,7 @@ void MobilitySwitcherComponent::setMovementParameters(float rotationSpeed, const
 }
 
 void MobilitySwitcherComponent::onAttach() {
-    // Component attached - initialization handled by System
+    // EntityComponent attached - initialization handled by System
 }
 
 void MobilitySwitcherComponent::onUpdate(float deltaTime) {

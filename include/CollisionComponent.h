@@ -6,7 +6,7 @@
 #include <memory>
 
 /// Collision component for Frostbite architecture (with SOA backend)
-class CollisionComponent : public Component {
+class CollisionComponent : public EntityComponent {
 public:
     CollisionComponent(const std::string& name = "Collision");
     ~CollisionComponent() override;
