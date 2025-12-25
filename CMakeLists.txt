@@ -10,6 +10,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Find GLM package
 find_package(glm CONFIG REQUIRED)
 
+add_compile_definitions(GLM_ENABLE_EXPERIMENTAL)
+
 # Find GLEW package
 find_package(GLEW REQUIRED)
 
@@ -44,7 +46,18 @@ target_include_directories(aiecs PRIVATE
 )
 
 # Link GLM, GLEW, GLFW, and OpenGL
-target_link_libraries(aiecs PRIVATE glm::glm GLEW::GLEW glfw GL)
+
+target_link_libraries(aiecs PRIVATE glm::glm GLEW::GLEW glfw)
+
+if(WIN32)
+    find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+
+    target_link_libraries(aiecs PRIVATE opengl32)
+else()
+    find_package(OpenGL REQUIRED)
+
+    target_link_libraries(aiecs PRIVATE GL)
+endif()
 
 # Set output directory
 set_target_properties(aiecs PROPERTIES
