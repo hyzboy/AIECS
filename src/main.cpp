@@ -119,7 +119,9 @@ int main() {
     int staticCount = 0;
     
     // Random number generators for switchable rectangles
-    std::uniform_int_distribution<int> switchSelectDist(0, 99);  // 10% chance to be switchable
+    static constexpr int SWITCHABLE_PERCENTAGE = 10;  // 10% of static rectangles can switch
+    static constexpr float MOVEMENT_DURATION_SECONDS = 1.0f;  // Duration when movable
+    std::uniform_int_distribution<int> switchSelectDist(0, 99);  // For percentage check
     std::uniform_real_distribution<float> switchIntervalDist(2.0f, 5.0f);  // Switch every 2-5 seconds
     std::uniform_real_distribution<float> moveRotSpeedDist(-2.0f, 2.0f);  // Rotation speed when moving
     std::uniform_real_distribution<float> moveVelDist(-0.1f, 0.1f);  // Movement velocity when moving
@@ -141,7 +143,7 @@ int main() {
         staticCount++;
         
         // 10% of static rectangles can switch mobility
-        if (switchSelectDist(rng) < 10) {
+        if (switchSelectDist(rng) < SWITCHABLE_PERCENTAGE) {
             SwitchableRect sr;
             sr.entityIndex = entities.size() - 1;
             sr.nextSwitchTime = switchIntervalDist(rng);
@@ -272,7 +274,7 @@ int main() {
                     // Switch to Movable
                     transform->setMobility(TransformMobility::Movable);
                     sr.isCurrentlyMoving = true;
-                    sr.movementEndTime = time + 1.0f;  // Move for 1 second
+                    sr.movementEndTime = time + MOVEMENT_DURATION_SECONDS;  // Move for defined duration
                     
                     // Generate new random movement parameters for variety
                     sr.rotationSpeed = moveRotSpeedDist(rng);
