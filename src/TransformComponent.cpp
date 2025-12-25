@@ -88,11 +88,6 @@ glm::mat4 TransformComponent::getWorldMatrix() const {
         return cachedWorldMatrix;
     }
     
-    // For Stationary objects, only update when dirty
-    if (mobility == TransformMobility::Stationary && !matrixDirty) {
-        return cachedWorldMatrix;
-    }
-    
     // For Movable objects or when dirty, always recalculate
     if (matrixDirty) {
         const_cast<TransformComponent*>(this)->updateWorldMatrix();
@@ -194,8 +189,8 @@ void TransformComponent::removeChild(std::shared_ptr<GameEntity> child) {
 void TransformComponent::setMobility(TransformMobility newMobility) {
     mobility = newMobility;
     
-    // When setting to Static or Stationary, cache the current world matrix
-    if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
+    // When setting to Static, cache the current world matrix
+    if (mobility == TransformMobility::Static) {
         if (matrixDirty) {
             updateWorldMatrix();
         }
@@ -236,8 +231,8 @@ void TransformComponent::updateWorldMatrix() {
     
     matrixDirty = false;
     
-    // Cache the world matrix for Static/Stationary objects
-    if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
+    // Cache the world matrix for Static objects
+    if (mobility == TransformMobility::Static) {
         cachedWorldMatrix = storage->getWorldMatrix(storageHandle);
     }
 }

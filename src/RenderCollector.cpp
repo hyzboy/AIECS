@@ -93,8 +93,8 @@ void RenderCollector::collectAndRender() {
                 
                 // Separate by mobility type
                 TransformMobility mobility = transformComp->getMobility();
-                if (mobility == TransformMobility::Static || mobility == TransformMobility::Stationary) {
-                    // Static/Stationary objects - store entity reference and data
+                if (mobility == TransformMobility::Static) {
+                    // Static objects - store entity reference and data
                     staticEntities.push_back(entity);
                     staticModelMatrices.push_back(worldMatrix);
                     staticMaterialIDs.push_back(matID);
@@ -109,7 +109,7 @@ void RenderCollector::collectAndRender() {
         
         dataInitialized = true;
         std::cout << "[RenderCollector] Static data initialized: "
-                  << staticEntities.size() << " static/stationary, "
+                  << staticEntities.size() << " static, "
                   << movableEntities.size() << " movable | "
                   << uniqueStaticMaterials.size() << " static materials, "
                   << uniqueDynamicMaterials.size() << " dynamic materials" << std::endl;

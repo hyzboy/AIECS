@@ -10,7 +10,6 @@
 /// Mobility type for transform optimization (similar to Unreal Engine)
 enum class TransformMobility {
     Static,      // Never moves, transform matrix cached permanently
-    Stationary,  // Rarely moves, transform updated only when explicitly changed
     Movable      // Frequently moves, transform updated every frame
 };
 
@@ -59,11 +58,7 @@ public:
     void setMobility(TransformMobility mobility);
     TransformMobility getMobility() const { return mobility; }
     bool isStatic() const { return mobility == TransformMobility::Static; }
-    bool isStationary() const { return mobility == TransformMobility::Stationary; }
     bool isMovable() const { return mobility == TransformMobility::Movable; }
-
-    // Mark transform as dirty (for Stationary objects)
-    void markDirty() { matrixDirty = true; }
 
     void onUpdate(float deltaTime) override;
     void onAttach() override;
@@ -86,5 +81,5 @@ private:
     std::vector<std::shared_ptr<GameEntity>> childEntities;
     bool matrixDirty = true;
     TransformMobility mobility = TransformMobility::Movable;  // Default to movable
-    glm::mat4 cachedWorldMatrix;  // Cached for Static/Stationary objects
+    glm::mat4 cachedWorldMatrix;  // Cached for Static objects
 };

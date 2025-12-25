@@ -126,7 +126,7 @@ int main() {
         entities.push_back(entity);
     }
 
-    // Child Rectangle 3: Small yellow rectangle (bottom-left of parent) - Stationary
+    // Child Rectangle 3: Small yellow rectangle (bottom-left of parent) - Static
     {
         auto entity = world->createObject<GameEntity>("ChildRect3");
         auto transform = entity->addComponent<TransformComponent>();
@@ -135,13 +135,13 @@ int main() {
         transform->setParent(parentRect);
         transform->setLocalPosition(glm::vec3(-0.3f, -0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
-        transform->setMobility(TransformMobility::Stationary);  // Rarely moves
+        transform->setMobility(TransformMobility::Static);  // Static object
         render->setColor(glm::vec4(0.9f, 0.9f, 0.2f, 1.0f)); // Yellow
         
         entities.push_back(entity);
     }
 
-    // Child Rectangle 4: Small magenta rectangle (bottom-right of parent) - Stationary
+    // Child Rectangle 4: Small magenta rectangle (bottom-right of parent) - Static
     {
         auto entity = world->createObject<GameEntity>("ChildRect4");
         auto transform = entity->addComponent<TransformComponent>();
@@ -150,7 +150,7 @@ int main() {
         transform->setParent(parentRect);
         transform->setLocalPosition(glm::vec3(0.3f, -0.3f, 0.0f));
         transform->setLocalScale(glm::vec3(0.3f, 0.3f, 1.0f));
-        transform->setMobility(TransformMobility::Stationary);  // Rarely moves
+        transform->setMobility(TransformMobility::Static);  // Static object
         render->setColor(glm::vec4(0.9f, 0.2f, 0.9f, 1.0f)); // Magenta
         
         entities.push_back(entity);
@@ -173,15 +173,13 @@ int main() {
 
     std::cout << "Created " << entities.size() << " rectangles in hierarchical structure." << std::endl;
     std::cout << "  1 parent (Movable, animated)" << std::endl;
-    std::cout << "  2 Static children (red, green) - matrix cached" << std::endl;
-    std::cout << "  2 Stationary children (yellow, magenta) - updated only when dirty" << std::endl;
+    std::cout << "  4 Static children (red, green, yellow, magenta) - matrix cached" << std::endl;
     std::cout << "  1 Movable child (white, rotating)" << std::endl;
     std::cout << "\n[Architecture] Using modular system:" << std::endl;
     std::cout << "  - RenderSystem: Handles all OpenGL rendering with instancing" << std::endl;
     std::cout << "  - RenderCollector: Collects component data and batches rendering" << std::endl;
     std::cout << "\n[Optimization] Transform mobility:" << std::endl;
     std::cout << "  - Static: Matrix cached, never recalculated" << std::endl;
-    std::cout << "  - Stationary: Matrix cached, updated only when marked dirty" << std::endl;
     std::cout << "  - Movable: Matrix recalculated every frame" << std::endl;
     std::cout << "\nEntering render loop. Press ESC to exit." << std::endl;
 

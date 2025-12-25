@@ -39,7 +39,7 @@ private:
     std::weak_ptr<RenderSystem> renderSystem;
 
     // Temporary buffers for batch data - separated by mobility
-    // Static/Stationary objects (rarely updated) - built once and cached
+    // Static objects (never updated) - built once and cached
     std::vector<glm::mat4> staticModelMatrices;
     std::vector<unsigned int> staticMaterialIDs;
     
