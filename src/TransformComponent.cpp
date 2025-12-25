@@ -189,6 +189,12 @@ void TransformComponent::removeChild(std::shared_ptr<GameEntity> child) {
 void TransformComponent::setMobility(TransformMobility newMobility) {
     mobility = newMobility;
     
+    // Sync mobility to SOA storage
+    if (storageHandle != TransformDataStorage::INVALID_HANDLE) {
+        auto storage = getSharedStorage();
+        storage->setMobility(storageHandle, static_cast<uint8_t>(mobility == TransformMobility::Static ? 0 : 1));
+    }
+    
     // When setting to Static, cache the current world matrix
     if (mobility == TransformMobility::Static) {
         if (matrixDirty) {

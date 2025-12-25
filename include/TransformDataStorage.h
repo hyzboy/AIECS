@@ -23,6 +23,7 @@ public:
         worldMatrices.emplace_back(1.0f);
         parentHandles.push_back(INVALID_HANDLE);
         matrixDirty.push_back(true);
+        mobility.push_back(1);  // Default to Movable
         return id;
     }
 
@@ -93,10 +94,36 @@ public:
         matrixDirty[id] = dirty;
     }
 
+    // Mobility tracking (0 = Static, 1 = Movable)
+    uint8_t getMobility(HandleID id) const {
+        return mobility[id];
+    }
+
+    void setMobility(HandleID id, uint8_t mobilityValue) {
+        mobility[id] = mobilityValue;
+    }
+
     // Batch operations - these are much faster with SOA!
+
+    /// Update only movable dirty transforms - optimized for Static/Movable separation
+    /// Static objects are never updated after initialization
+    void updateMovableDirtyMatrices(const std::function<void(HandleID, glm::vec3, glm::quat, glm::vec3)>& callback) {
+        // Only iterate through movable objects
+        for (size_t i = 0; i < matrixDirty.size(); ++i) {
+            // Skip static objects (mobility == 0)
+            if (mobility[i] == 0) continue;
+            
+            if (matrixDirty[i]) {
+                // Load from cache-friendly consecutive arrays
+                callback(static_cast<HandleID>(i), positions[i], rotations[i], scales[i]);
+                matrixDirty[i] = false;
+            }
+        }
+    }
 
     /// Update all dirty transforms - cache friendly
     /// Process all positions, then rotations, then scales
+    /// NOTE: Prefer updateMovableDirtyMatrices() for better performance with Static/Movable separation
     void updateAllDirtyMatrices(const std::function<void(HandleID, glm::vec3, glm::quat, glm::vec3)>& callback) {
         // Iterate through all dirty flags
         for (size_t i = 0; i < matrixDirty.size(); ++i) {
@@ -134,6 +161,7 @@ public:
         worldMatrices.clear();
         parentHandles.clear();
         matrixDirty.clear();
+        mobility.clear();
     }
 
 private:
@@ -145,4 +173,5 @@ private:
     std::vector<glm::mat4> worldMatrices;    // 64 bytes each, consecutive
     std::vector<HandleID> parentHandles;     // 4 bytes each, consecutive
     std::vector<bool> matrixDirty;           // 1 byte each, consecutive
+    std::vector<uint8_t> mobility;           // 1 byte each, consecutive (0=Static, 1=Movable)
 };
