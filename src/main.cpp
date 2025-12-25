@@ -58,10 +58,12 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    // Initialize GLEW
+    // Initialize GLEW (glewExperimental needed for Core profile to load all extensions)
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
         std::cerr << "Failed to initialize GLEW" << std::endl;
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return -1;
     }
 
