@@ -7,6 +7,8 @@
 #include <string>
 
 /// Base component class for GameEntity
+class GameEntity; // Forward declaration
+
 class Component {
 public:
     explicit Component(const std::string& name = "Component")
@@ -23,9 +25,16 @@ public:
     virtual void onDetach() {}
 
     const std::string& getName() const { return componentName; }
+    
+    /// Set the owner entity
+    void setOwner(std::shared_ptr<GameEntity> entity) { owner = entity; }
+    
+    /// Get the owner entity
+    std::shared_ptr<GameEntity> getOwner() const { return owner.lock(); }
 
 protected:
     std::string componentName;
+    std::weak_ptr<GameEntity> owner;
 };
 
 /// GameEntity - represents game objects with components
