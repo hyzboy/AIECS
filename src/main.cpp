@@ -273,6 +273,10 @@ int main() {
                     transform->setMobility(TransformMobility::Movable);
                     sr.isCurrentlyMoving = true;
                     sr.movementEndTime = time + 1.0f;  // Move for 1 second
+                    
+                    // Generate new random movement parameters for variety
+                    sr.rotationSpeed = moveRotSpeedDist(rng);
+                    sr.movementVelocity = glm::vec3(moveVelDist(rng), moveVelDist(rng), 0.0f);
                     rotationSpeeds[sr.entityIndex] = sr.rotationSpeed;  // Enable rotation
                 }
             }
