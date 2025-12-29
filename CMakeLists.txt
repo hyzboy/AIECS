@@ -25,6 +25,8 @@ include/EntityComponent.h
 include/EntitySystem.h
 include/EventSystem.h
 include/GameEntity.h
+include/InputComponent.h
+include/InputSystem.h
 include/InstanceVBO.h
 include/Material.h
 include/MobilitySwitcherComponent.h
@@ -53,6 +55,8 @@ set(AIECS_SOURCES
     src/TransformComponent.cpp
     src/CollisionComponent.cpp
     src/RenderComponent.cpp
+    src/InputComponent.cpp
+    src/InputSystem.cpp
     src/ShaderProgram.cpp
     src/RenderSystem.cpp
     src/RenderCollector.cpp

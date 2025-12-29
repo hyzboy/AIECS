@@ -15,6 +15,8 @@
 #include "RenderCollector.h"
 #include "MobilitySwitcherComponent.h"
 #include "MobilitySwitcherSystem.h"
+#include "InputComponent.h"
+#include "InputSystem.h"
 #include "Material.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -86,6 +88,12 @@ int main() {
     mobilitySwitcherSystem->setWorld(world);
     mobilitySwitcherSystem->setScreenBoundary(0.95f);
 
+    // Register InputSystem module (NEW: ECS-based input handling)
+    auto inputSystem = world->registerModule<InputSystem>();
+    inputSystem->initialize();
+    inputSystem->setWorld(world);
+    inputSystem->setWindow(window);
+
     std::cout << "\n=== Creating 10,000+ rectangles ===" << std::endl;
     
     // Random number generator
@@ -154,6 +162,9 @@ int main() {
     // === Part 2: Animated floating rectangles (1500 rectangles) ===
     std::cout << "Creating 1500 animated floating rectangles..." << std::endl;
     int movableCount = 0;
+    int inputEnabledCount = 0;  // Track entities with input
+    std::uniform_int_distribution<int> inputSelectDist(0, 99);  // For selecting input entities
+    
     for (int i = 0; i < 1500; ++i) {
         auto entity = world->createObject<GameEntity>("FloatingRect_" + std::to_string(i));
         auto transform = entity->addComponent<TransformComponent>();
@@ -169,6 +180,82 @@ int main() {
         entities.push_back(entity);
         rotationSpeeds.push_back(rotSpeedDist(rng));  // Random rotation speed
         movableCount++;
+        
+        // Add InputComponent to 5% of floating rectangles (ECS pattern)
+        // These entities will respond to keyboard/mouse input
+        if (inputSelectDist(rng) < 5) {
+            auto input = entity->addComponent<InputComponent>();
+            
+            // Set up key callbacks for WASD movement
+            input->setKeyCallback(GLFW_KEY_W, [entity](int key, int action, int mods) {
+                if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                    auto transform = entity->getComponent<TransformComponent>();
+                    if (transform) {
+                        glm::vec3 pos = transform->getLocalPosition();
+                        pos.y += 0.01f;
+                        transform->setLocalPosition(pos);
+                    }
+                }
+            });
+            
+            input->setKeyCallback(GLFW_KEY_S, [entity](int key, int action, int mods) {
+                if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                    auto transform = entity->getComponent<TransformComponent>();
+                    if (transform) {
+                        glm::vec3 pos = transform->getLocalPosition();
+                        pos.y -= 0.01f;
+                        transform->setLocalPosition(pos);
+                    }
+                }
+            });
+            
+            input->setKeyCallback(GLFW_KEY_A, [entity](int key, int action, int mods) {
+                if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                    auto transform = entity->getComponent<TransformComponent>();
+                    if (transform) {
+                        glm::vec3 pos = transform->getLocalPosition();
+                        pos.x -= 0.01f;
+                        transform->setLocalPosition(pos);
+                    }
+                }
+            });
+            
+            input->setKeyCallback(GLFW_KEY_D, [entity](int key, int action, int mods) {
+                if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                    auto transform = entity->getComponent<TransformComponent>();
+                    if (transform) {
+                        glm::vec3 pos = transform->getLocalPosition();
+                        pos.x += 0.01f;
+                        transform->setLocalPosition(pos);
+                    }
+                }
+            });
+            
+            // Scale with mouse click
+            input->setMouseButtonCallback(GLFW_MOUSE_BUTTON_LEFT, [entity](int button, int action, int mods) {
+                if (action == GLFW_PRESS) {
+                    auto transform = entity->getComponent<TransformComponent>();
+                    if (transform) {
+                        glm::vec3 scale = transform->getLocalScale();
+                        scale *= 1.2f;  // Increase size
+                        transform->setLocalScale(scale);
+                    }
+                }
+            });
+            
+            input->setMouseButtonCallback(GLFW_MOUSE_BUTTON_RIGHT, [entity](int button, int action, int mods) {
+                if (action == GLFW_PRESS) {
+                    auto transform = entity->getComponent<TransformComponent>();
+                    if (transform) {
+                        glm::vec3 scale = transform->getLocalScale();
+                        scale *= 0.8f;  // Decrease size
+                        transform->setLocalScale(scale);
+                    }
+                }
+            });
+            
+            inputEnabledCount++;
+        }
     }
 
     // === Part 3: Hierarchical structures (500 parent-child pairs = 1000 rectangles) ===
@@ -211,6 +298,7 @@ int main() {
     std::cout << "  - Static background: " << staticCount << " (never updated)" << std::endl;
     std::cout << "  - Switchable rectangles: " << switchableCount << " (ECS-managed Static<->Movable)" << std::endl;
     std::cout << "  - Animated floating: " << movableCount << " (updated every frame)" << std::endl;
+    std::cout << "  - Input-enabled rectangles: " << inputEnabledCount << " (ECS-managed input handling)" << std::endl;
     std::cout << "  - Hierarchy entities: " << hierarchyCount << " (" << hierarchyCount/2 << " parent-child pairs)" << std::endl;
     std::cout << "  - Unique materials: " << sharedMaterials.size() << " (automatic deduplication)" << std::endl;
     std::cout << "\n=== Performance Optimizations ===" << std::endl;
@@ -221,7 +309,9 @@ int main() {
     std::cout << "  ✓ ARB_vertex_attrib_binding (minimal state changes)" << std::endl;
     std::cout << "  ✓ Hierarchical transform flattening (parent-child optimized)" << std::endl;
     std::cout << "  ✓ ECS-based mobility switching (MobilitySwitcherSystem)" << std::endl;
+    std::cout << "  ✓ ECS-based input handling (InputSystem)" << std::endl;
     std::cout << "\nEntering render loop. Press ESC to exit." << std::endl;
+    std::cout << "Input Controls: WASD to move input-enabled rectangles, Left/Right Mouse to scale them" << std::endl;
 
     // FPS tracking
     double lastTime = glfwGetTime();
