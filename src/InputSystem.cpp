@@ -40,6 +40,8 @@ void InputSystem::pollInputEvents() {
     }
 
     // Iterate through all entities in the world
+    // Note: This simple iteration approach is consistent with other systems (e.g., MobilitySwitcherSystem).
+    // In a more optimized implementation, you could maintain a separate collection of entities with InputComponent.
     const auto& objects = worldPtr->getObjects();
     for (const auto& obj : objects) {
         // Try to cast to GameEntity

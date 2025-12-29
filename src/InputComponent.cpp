@@ -1,4 +1,5 @@
 #include "InputComponent.h"
+#include <GLFW/glfw3.h>
 #include <iostream>
 
 InputComponent::InputComponent(const std::string& name)
@@ -37,7 +38,7 @@ void InputComponent::setMouseScrollCallback(MouseScrollCallback callback) {
 
 void InputComponent::processKey(int key, int action, int mods) {
     // Update key state
-    keyStates[key] = (action == 1 || action == 2); // GLFW_PRESS or GLFW_REPEAT
+    keyStates[key] = (action == GLFW_PRESS || action == GLFW_REPEAT);
 
     // Call callback if registered
     auto it = keyCallbacks.find(key);
@@ -48,7 +49,7 @@ void InputComponent::processKey(int key, int action, int mods) {
 
 void InputComponent::processMouseButton(int button, int action, int mods) {
     // Update button state
-    mouseButtonStates[button] = (action == 1); // GLFW_PRESS
+    mouseButtonStates[button] = (action == GLFW_PRESS);
 
     // Call callback if registered
     auto it = mouseButtonCallbacks.find(button);
